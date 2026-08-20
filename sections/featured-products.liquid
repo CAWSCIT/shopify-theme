@@ -64,7 +64,7 @@
     --section-bg: {{ section.settings.background_color }};
     --section-text: {{ section.settings.text_color }};
     --section-link: {{ section.settings.link_color }};
-    --section-rule: {{ section.settings.text_color | color_modify: 'alpha', 0.15 }};
+    --section-rule: {{ section.settings.text_color | color_modify: 'alpha', 0.85 }};
     --card-bg: {{ section.settings.card_background_color }};
     --card-border: {{ section.settings.text_color | color_modify: 'alpha', 0.1 }};
     --card-media-bg: {{ section.settings.media_background_color }};
@@ -76,7 +76,7 @@
 >
   <div class="mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] py-12 lg:py-16">
     {%- if section.settings.heading != blank or show_view_all -%}
-      <div class="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 border-b border-[var(--section-rule)] pb-4">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 border-b-2 border-[var(--section-rule)] pb-4">
         {%- if section.settings.heading != blank -%}
           <h2 class="font-serif text-3xl leading-tight font-normal lg:text-4xl">{{ section.settings.heading }}</h2>
         {%- endif -%}

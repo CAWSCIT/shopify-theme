@@ -1,0 +1,142 @@
+{% doc %}
+  Renders a link card — an image on a tinted panel, then a title and an
+  optional line beneath it. The whole card is one link, and stays a plain
+  card when no link is set.
+
+  The link is a free-form URL setting, so it can point at a product,
+  collection, page, blog post, or anywhere off the store.
+
+  Colours, the panel's aspect ratio and how the image sits inside it are read
+  from custom properties so a parent can theme a whole grid at once by setting
+  them on the container: `--card-bg`, `--card-border`, `--card-media-bg`,
+  `--card-media-aspect`, `--card-media-fit`. Every one has a fallback, so the
+  card also stands on its own.
+
+  @example
+  {% content_for 'block', type: 'link-card', id: 'link-card' %}
+{% enddoc %}
+
+{%- liquid
+  assign card_url = block.settings.link
+
+  if card_url != blank
+    assign wrapper = 'a'
+  else
+    assign wrapper = 'div'
+  endif
+
+  # The card is always one column of the grid it sits in, and that grid runs
+  # between two and six columns wide. Splitting the difference is enough — the
+  # value only steers which source the browser picks out of `srcset`.
+  assign card_sizes = '(min-width: 48rem) 20vw, 50vw'
+-%}
+
+<{{ wrapper }}
+  class="link-card"
+  {% if card_url != blank %}
+    href="{{ card_url }}"
+  {% endif %}
+  {{ block.shopify_attributes }}
+>
+  <div class="link-card__media">
+    {%- if block.settings.image != blank -%}
+      {{
+        block.settings.image
+        | image_url: width: 800
+        | image_tag:
+          widths: '200, 300, 400, 600, 800',
+          sizes: card_sizes,
+          loading: 'lazy',
+          class: 'link-card__image'
+      }}
+    {%- else -%}
+      {{ 'collection-1' | placeholder_svg_tag: 'link-card__image' }}
+    {%- endif -%}
+  </div>
+
+  <div class="flex flex-col gap-1 px-4 py-4 lg:px-5 lg:py-5">
+    {%- if block.settings.title != blank -%}
+      <h3 class="font-serif text-xl leading-tight font-normal">{{ block.settings.title }}</h3>
+    {%- endif -%}
+
+    {%- if block.settings.subtitle != blank -%}
+      <p class="link-card__subtitle text-sm leading-snug">{{ block.settings.subtitle }}</p>
+    {%- endif -%}
+  </div>
+</{{ wrapper }}>
+
+{% stylesheet %}
+  .link-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    background-color: var(--card-bg, #ffffff);
+    border: 1px solid var(--card-border, rgb(0 0 0 / 8%));
+    border-radius: var(--card-radius, 2px);
+    transition: box-shadow 150ms ease;
+  }
+
+  a.link-card:hover,
+  a.link-card:focus-visible {
+    box-shadow: 0 6px 20px rgb(0 0 0 / 8%);
+  }
+
+  /*
+   * A fixed ratio keeps the title rows of every card in a grid aligned no
+   * matter how tall or wide the individual images are.
+   */
+  .link-card__media {
+    aspect-ratio: var(--card-media-aspect, 1 / 1);
+    background-color: var(--card-media-bg, rgb(0 0 0 / 4%));
+  }
+
+  /*
+   * Unlayered, so this beats the `height: auto` that `critical.css` sets on
+   * every image from `@layer reset`.
+   */
+  .link-card__image {
+    width: 100%;
+    height: 100%;
+    object-fit: var(--card-media-fit, cover);
+  }
+
+  /* Dimmed rather than a fixed grey, so it works on any card background. */
+  .link-card__subtitle {
+    opacity: 0.65;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:general.link_card",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "t:labels.image"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "t:labels.title",
+      "default": "Card title"
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "label": "t:labels.subtitle",
+      "info": "t:info.card_subtitle"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "t:labels.link_url",
+      "info": "t:info.card_link"
+    }
+  ],
+  "presets": [{ "name": "t:general.link_card" }]
+}
+{% endschema %}
