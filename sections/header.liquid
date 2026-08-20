@@ -115,6 +115,7 @@
     <div class="bg-[var(--header-nav-bg)]">
       <nav
         class="header__catalog mx-auto flex max-w-[var(--page-width)] items-stretch gap-6 overflow-x-auto px-[var(--page-margin)] lg:gap-8"
+        tabindex="0"
         aria-label="{{ 'general.navigation.catalog' | t }}"
       >
         {%- for block in section.blocks -%}
@@ -153,15 +154,15 @@
           {%- if nav_url != blank and nav_label != blank -%}
             <a
               href="{{ nav_url }}"
-              class="flex shrink-0 flex-col justify-center border-b-[4px] py-3 text-[var(--header-text)] no-underline transition md:px-6 {% if is_active %}border-[var(--header-accent)]{% else %}border-transparent hover:border-white/30{% endif %}"
+              class="flex shrink-0 flex-col justify-center border-b-[4px] py-3 text-[var(--header-text)] no-underline  md:px-6 {% if is_active %}border-[var(--header-accent)]{% else %}border-transparent hover:border-[var(--header-accent)]{% endif %}"
               {% if is_active %}
                 aria-current="page"
               {% endif %}
               {{ block.shopify_attributes }}
             >
-              <span class="text-base font-medium">{{ nav_label }}</span>
+              <span class="text-[0.875rem] font-medium">{{ nav_label }}</span>
               {%- if nav_description != blank -%}
-                <span class="text-sm leading-tight opacity-70">{{ nav_description }}</span>
+                <span class="text-xs leading-tight opacity-70">{{ nav_description }}</span>
               {%- endif -%}
             </a>
           {%- endif -%}
@@ -172,16 +173,119 @@
 </header>
 
 {% stylesheet %}
-  /* The catalog row scrolls sideways on narrow screens; the scrollbar itself
-     would sit on top of the active-item underline, so hide it. */
+  /*
+   * The catalog row scrolls sideways when the collections don't fit — which on
+   * a phone is nearly always. The scrollbar itself would sit on top of the
+   * active-item underline, so it's hidden and replaced by the edge fades below.
+   */
   .header__catalog {
     scrollbar-width: none;
+    scroll-snap-type: inline proximity;
+    /* Keep a sideways swipe inside the bar: no page scroll, no back-navigation. */
+    overscroll-behavior-inline: contain;
+    /* Snapped items line up with the page margin rather than the viewport edge. */
+    scroll-padding-inline: var(--page-margin);
   }
 
   .header__catalog::-webkit-scrollbar {
     display: none;
   }
+
+  .header__catalog > * {
+    scroll-snap-align: start;
+  }
+
+  /*
+   * Fade whichever edge still has collections behind it, so it's obvious the row
+   * scrolls. `data-overflow` is maintained by the script below; with JS off the
+   * attribute is never set and the row simply renders unfaded.
+   */
+  .header__catalog[data-overflow] {
+    -webkit-mask-image: var(--catalog-fade);
+    mask-image: var(--catalog-fade);
+  }
+
+  .header__catalog[data-overflow='start'] {
+    --catalog-fade: linear-gradient(to right, transparent, #000 2.5rem);
+  }
+
+  .header__catalog[data-overflow='end'] {
+    --catalog-fade: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+  }
+
+  .header__catalog[data-overflow='both'] {
+    --catalog-fade: linear-gradient(
+      to right,
+      transparent,
+      #000 2.5rem,
+      #000 calc(100% - 2.5rem),
+      transparent
+    );
+  }
 {% endstylesheet %}
+
+{% javascript %}
+  // Keeps the catalog row's edge fades in sync with its scroll position, and
+  // brings the collection you're currently browsing into view on load.
+  (() => {
+    function setupCatalog(nav) {
+      if (nav.dataset.catalogReady) return;
+      nav.dataset.catalogReady = 'true';
+
+      function update() {
+        const max = nav.scrollWidth - nav.clientWidth;
+
+        // Nothing to scroll: drop the attribute so no mask is applied at all.
+        if (max <= 1) {
+          delete nav.dataset.overflow;
+          return;
+        }
+
+        // 1px of slack absorbs sub-pixel scroll positions on zoomed displays.
+        const atStart = nav.scrollLeft <= 1;
+        const atEnd = nav.scrollLeft >= max - 1;
+
+        if (atStart) {
+          nav.dataset.overflow = 'end';
+        } else if (atEnd) {
+          nav.dataset.overflow = 'start';
+        } else {
+          nav.dataset.overflow = 'both';
+        }
+      }
+
+      nav.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update);
+
+      // Re-measure once webfonts land, since they change the row's width.
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(update);
+      }
+
+      // Centre the active collection. Adjusting scrollLeft by the measured delta
+      // keeps the scroll local to this row — scrollIntoView would also pan any
+      // scrollable ancestor, which on a phone means jumping the whole page.
+      const current = nav.querySelector('[aria-current="page"]');
+
+      if (current) {
+        const navBox = nav.getBoundingClientRect();
+        const itemBox = current.getBoundingClientRect();
+        nav.scrollLeft += itemBox.left - navBox.left - (navBox.width - itemBox.width) / 2;
+      }
+
+      update();
+    }
+
+    function init() {
+      document.querySelectorAll('.header__catalog').forEach(setupCatalog);
+    }
+
+    init();
+
+    // The theme editor re-renders the section on every settings change.
+    document.addEventListener('shopify:section:load', init);
+  })();
+{% endjavascript %}
 
 {% schema %}
 {
