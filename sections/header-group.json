@@ -11,6 +11,18 @@
   "type": "header",
   "name": "t:general.header",
   "sections": {
+    "alert_bar": {
+      "type": "alert-bar",
+      "settings": {
+        "badge": "Dec 24 – Jan 2",
+        "message": "The office is closed for the holidays. Orders placed now ship on January 3.",
+        "alignment": "left",
+        "background_color": "#dce5db",
+        "text_color": "#1c2320",
+        "badge_background_color": "#0d463d",
+        "badge_text_color": "#ffffff"
+      }
+    },
     "header": {
       "type": "header",
       "blocks": {
@@ -84,6 +96,7 @@
     }
   },
   "order": [
+    "alert_bar",
     "header"
   ]
 }

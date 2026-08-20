@@ -37,6 +37,7 @@
   },
   "general": {
     "accessibility": {
+      "alert": "Store alert",
       "open_menu": "Open menu"
     },
     "country_region": "Country/region",

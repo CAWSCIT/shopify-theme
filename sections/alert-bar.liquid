@@ -1,0 +1,134 @@
+{%- liquid
+  # An empty bar would still paint a strip of colour above the header, so the
+  # whole section drops out unless the merchant wrote something in it.
+  assign has_badge = false
+  if section.settings.badge != blank
+    assign has_badge = true
+  endif
+
+  assign has_message = false
+  if section.settings.message != blank
+    assign has_message = true
+  endif
+
+  # Centring is only meaningful once the row fits on one line; on a phone the
+  # badge and message wrap, and centred wrapped text reads worse than left.
+  if section.settings.alignment == 'center'
+    assign justify = 'md:justify-center'
+  else
+    assign justify = 'md:justify-start'
+  endif
+-%}
+
+{%- if has_badge or has_message -%}
+  <aside
+    class="alert-bar full-width bg-[var(--alert-bg)] text-[var(--alert-text)]"
+    aria-label="{{ 'general.accessibility.alert' | t }}"
+    style="
+      --alert-bg: {{ section.settings.background_color }};
+      --alert-text: {{ section.settings.text_color }};
+      --alert-badge-bg: {{ section.settings.badge_background_color }};
+      --alert-badge-text: {{ section.settings.badge_text_color }};
+    "
+  >
+    <div class="mx-auto flex max-w-[var(--page-width)] flex-wrap items-center gap-x-4 gap-y-2 px-[var(--page-margin)] py-2.5 {{ justify }}">
+      {%- if has_badge -%}
+        <span class="inline-flex shrink-0 items-center rounded-full bg-[var(--alert-badge-bg)] px-4 py-1.5 text-[0.6875rem] leading-none font-bold tracking-[0.14em] text-[var(--alert-badge-text)] uppercase">
+          {{- section.settings.badge -}}
+        </span>
+      {%- endif -%}
+
+      {%- if has_message -%}
+        <p class="alert-bar__message min-w-0 text-sm leading-snug lg:text-base">
+          {{- section.settings.message -}}
+        </p>
+      {%- endif -%}
+    </div>
+  </aside>
+{%- endif -%}
+
+{% stylesheet %}
+  /*
+   * Links come out of the `inline_richtext` setting as bare `<a>` tags, so they
+   * can't carry utility classes — they're styled from here instead. Underlined
+   * by default, and the underline drops away on hover.
+   */
+  .alert-bar__message a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .alert-bar__message a:hover,
+  .alert-bar__message a:focus-visible {
+    text-decoration: none;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:general.alert_bar",
+  "enabled_on": {
+    "groups": ["header"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "badge",
+      "label": "t:labels.badge",
+      "info": "t:info.badge_optional",
+      "default": "Dec 24 – Jan 2"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "message",
+      "label": "t:labels.message",
+      "info": "t:info.alert_message",
+      "default": "The office is closed for the holidays. Orders placed now ship on January 3."
+    },
+    {
+      "type": "select",
+      "id": "alignment",
+      "label": "t:labels.alignment",
+      "default": "left",
+      "options": [
+        { "value": "left", "label": "t:options.alignment.left" },
+        { "value": "center", "label": "t:options.alignment.center" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#DCE5DB"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "badge_background_color",
+      "label": "t:labels.badge_background_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "badge_text_color",
+      "label": "t:labels.badge_text_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:general.alert_bar"
+    }
+  ]
+}
+{% endschema %}
