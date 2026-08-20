@@ -1,5 +1,5 @@
 {% doc %}
-  Renders the header's cart button, showing the running cart total.
+  Renders the header's cart button, showing how many items are in the cart.
 
   @param {boolean} [compact] - Drop the "Cart" wording, for tight mobile rows
   @param {string} [classes] - Extra classes, typically responsive visibility
@@ -11,7 +11,7 @@
 
 <a
   href="{{ routes.cart_url }}"
-  aria-label="{{ 'cart.title' | t }}: {{ 'cart.item_count' | t: count: cart.item_count }}, {{ cart.total_price | money }}"
+  aria-label="{{ 'cart.title' | t }}: {{ 'cart.item_count' | t: count: cart.item_count }}"
   class="flex shrink-0 items-center gap-2 rounded-xs bg-[var(--header-accent)] px-4 py-2 text-sm font-medium text-white no-underline transition hover:opacity-90 {{ classes }}"
 >
   {%- if compact -%}
@@ -20,5 +20,5 @@
     <span aria-hidden="true">{{ 'cart.title' | t }}</span>
     <span aria-hidden="true">·</span>
   {%- endif -%}
-  <span aria-hidden="true" data-cart-total class="font-price">{{ cart.total_price | money }}</span>
+  <span aria-hidden="true" data-cart-count>{{ cart.item_count }}</span>
 </a>
