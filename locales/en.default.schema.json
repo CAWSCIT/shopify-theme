@@ -67,6 +67,7 @@
   "info": {
     "brand_name_fallback": "Leave blank to use the store name from Settings → Store details.",
     "label_fallback": "Leave blank to use the collection title.",
+    "menu_optional": "Top-level links show beside the logo on desktop. On smaller screens the whole menu moves into the drawer. Leave blank to hide it.",
     "logo_fallback": "Leave blank to use the logo bundled with the theme."
   },
   "options": {

@@ -14,6 +14,22 @@
   else
     assign account_url = routes.account_login_url
   endif
+
+  # An unset menu, or one the merchant emptied, drops the nav entirely.
+  assign header_menu = section.settings.menu
+  assign has_menu = false
+  if header_menu != blank and header_menu.links.size > 0
+    assign has_menu = true
+  endif
+
+  # The drawer holds the menu below `lg` (where the links don't fit) and the
+  # search/account controls below `md`. Open it over whichever range has
+  # something to show, otherwise there'd be an empty toggle.
+  if has_menu
+    assign drawer_visibility = 'lg:hidden'
+  else
+    assign drawer_visibility = 'md:hidden'
+  endif
 -%}
 
 <header
@@ -29,45 +45,63 @@
 >
   {% # Row 1 — brand, catalog search, account, cart %}
   <div class="relative mx-auto flex max-w-[var(--page-width)] items-center justify-between gap-4 px-[var(--page-margin)] py-3 lg:gap-8 lg:py-4">
-    <a
-      href="{{ routes.root_url }}"
-      class="flex min-w-0 items-center gap-3 text-[var(--header-text)] no-underline lg:gap-4"
-    >
-      {%- if section.settings.logo != blank -%}
-        {{
-          section.settings.logo
-          | image_url: width: 192
-          | image_tag:
-            widths: '48, 96, 144, 192',
-            sizes: 'var(--header-logo-width)',
-            alt: brand_name,
-            loading: 'eager',
-            class: 'w-[var(--header-logo-width)] shrink-0 object-contain'
-        }}
-      {%- else -%}
-        <img
-          src="{{ 'ca-logo-white.png' | asset_url }}"
-          alt="{{ brand_name | escape }}"
-          width="192"
-          height="192"
-          loading="eager"
-          class="w-[var(--header-logo-width)] shrink-0 object-contain"
-        >
-      {%- endif -%}
-
-      <span class="min-w-0">
-        <span class="block truncate font-serif text-lg leading-tight lg:text-2xl font-light">{{ brand_name }}</span>
-        {%- if section.settings.tagline != blank -%}
-          <span class="mt-0.5 block truncate text-[0.625rem] leading-tight tracking-[0.18em] uppercase opacity-75 lg:text-[0.75rem] font-medium">
-            {{- section.settings.tagline -}}
-          </span>
+    <div class="flex min-w-0 flex-1 items-center gap-6 lg:gap-8">
+      <a
+        href="{{ routes.root_url }}"
+        class="flex min-w-0 items-center gap-3 text-[var(--header-text)] no-underline lg:gap-4"
+      >
+        {%- if section.settings.logo != blank -%}
+          {{
+            section.settings.logo
+            | image_url: width: 192
+            | image_tag:
+              widths: '48, 96, 144, 192',
+              sizes: 'var(--header-logo-width)',
+              alt: brand_name,
+              loading: 'eager',
+              class: 'w-[var(--header-logo-width)] shrink-0 object-contain'
+          }}
+        {%- else -%}
+          <img
+            src="{{ 'ca-logo-white.png' | asset_url }}"
+            alt="{{ brand_name | escape }}"
+            width="192"
+            height="192"
+            loading="eager"
+            class="w-[var(--header-logo-width)] shrink-0 object-contain"
+          >
         {%- endif -%}
-      </span>
-    </a>
+
+        <span class="min-w-0">
+          <span class="block truncate font-serif text-lg leading-tight lg:text-2xl font-light">{{ brand_name }}</span>
+          {%- if section.settings.tagline != blank -%}
+            <span class="mt-0.5 block truncate text-[0.625rem] leading-tight tracking-[0.18em] uppercase opacity-75 lg:text-[0.75rem] font-medium">
+              {{- section.settings.tagline -}}
+            </span>
+          {%- endif -%}
+        </span>
+      </a>
+
+      {%- if has_menu -%}
+        <nav class="hidden shrink-0 items-center gap-5 lg:flex xl:gap-6" aria-label="{{ 'general.navigation.main_menu' | t }}">
+          {%- for link in header_menu.links -%}
+            <a
+              href="{{ link.url }}"
+              class="text-sm whitespace-nowrap text-[var(--header-text)] transition {% if link.active or link.child_active %}underline decoration-[var(--header-accent)] decoration-2 underline-offset-[6px] opacity-100{% else %}no-underline opacity-90 hover:opacity-100{% endif %}"
+              {% if link.active %}
+                aria-current="page"
+              {% endif %}
+            >
+              {{- link.title -}}
+            </a>
+          {%- endfor -%}
+        </nav>
+      {%- endif -%}
+    </div>
 
     <div class="hidden items-center gap-4 md:flex lg:gap-5">
       {%- if section.settings.show_search -%}
-        {% render 'header-search', id: 'header-search-desktop', classes: 'w-44 lg:w-64 xl:w-80' %}
+        {% render 'header-search', id: 'header-search-desktop', classes: 'w-44 xl:w-80' %}
       {%- endif -%}
 
       <a
@@ -80,8 +114,8 @@
       {% render 'header-cart-link' %}
     </div>
 
-    <div class="flex shrink-0 items-center gap-2 md:hidden">
-      {% render 'header-cart-link', compact: true %}
+    <div class="flex shrink-0 items-center gap-2 {{ drawer_visibility }}">
+      {% render 'header-cart-link', compact: true, classes: 'md:hidden' %}
 
       <details class="group" scroll-lock>
         <summary
@@ -96,12 +130,46 @@
 
         <div class="absolute inset-x-[var(--page-margin)] top-full z-50 mt-3 flex flex-col gap-3 rounded-xs bg-[var(--header-bg)] p-4 shadow-lg ring-1 ring-white/10">
           {%- if section.settings.show_search -%}
-            {% render 'header-search', id: 'header-search-mobile', classes: 'w-full' %}
+            <div class="md:hidden">
+              {% render 'header-search', id: 'header-search-mobile', classes: 'w-full' %}
+            </div>
+          {%- endif -%}
+
+          {%- if has_menu -%}
+            <nav class="flex flex-col" aria-label="{{ 'general.navigation.main_menu' | t }}">
+              {%- for link in header_menu.links -%}
+                <a
+                  href="{{ link.url }}"
+                  class="rounded-xs px-2 py-2.5 text-sm text-[var(--header-text)] no-underline transition hover:bg-white/10 {% if link.active or link.child_active %}font-semibold{% endif %}"
+                  {% if link.active %}
+                    aria-current="page"
+                  {% endif %}
+                >
+                  {{- link.title -}}
+                </a>
+
+                {%- comment -%}
+                  Child links have nowhere to go on desktop (top level only, no
+                  dropdowns), so list them here rather than leave them unreachable.
+                {%- endcomment -%}
+                {%- for child_link in link.links -%}
+                  <a
+                    href="{{ child_link.url }}"
+                    class="rounded-xs py-2 pr-2 pl-5 text-sm text-[var(--header-text)] no-underline opacity-80 transition hover:bg-white/10 hover:opacity-100"
+                    {% if child_link.active %}
+                      aria-current="page"
+                    {% endif %}
+                  >
+                    {{- child_link.title -}}
+                  </a>
+                {%- endfor -%}
+              {%- endfor -%}
+            </nav>
           {%- endif -%}
 
           <a
             href="{{ account_url }}"
-            class="rounded-xs px-2 py-2 text-sm text-[var(--header-text)] no-underline transition hover:bg-white/10"
+            class="rounded-xs px-2 py-2 text-sm text-[var(--header-text)] no-underline transition hover:bg-white/10 md:hidden"
           >
             {{- 'customers.account' | t -}}
           </a>
@@ -344,6 +412,13 @@
     }
   ],
   "settings": [
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "t:labels.menu",
+      "default": "main-menu",
+      "info": "t:info.menu_optional"
+    },
     {
       "type": "image_picker",
       "id": "logo",
