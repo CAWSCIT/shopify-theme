@@ -63,7 +63,7 @@
         {%- endif -%}
 
         {%- if section.settings.address != blank -%}
-          <div class="leading-relaxed text-[var(--footer-muted)]">{{ section.settings.address }}</div>
+          <div class="leading-relaxed text-[var(--footer-muted)] [&_p]:font-light">{{ section.settings.address }}</div>
         {%- endif -%}
       </div>
 
@@ -104,7 +104,7 @@
 
     <div class="mt-12 border-t border-[var(--footer-rule)] pt-7 lg:mt-16">
       {%- if section.settings.tagline != blank -%}
-        <p class="mb-5 font-serif leading-relaxed italic">{{ section.settings.tagline }}</p>
+        <p class="mb-5 font-serif leading-relaxed italic font-light">{{ section.settings.tagline }}</p>
       {%- endif -%}
 
       <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-sm text-[var(--footer-muted)]">

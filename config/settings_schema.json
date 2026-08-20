@@ -17,8 +17,9 @@
       {
         "type": "font_picker",
         "id": "type_primary_font",
-        "default": "work_sans_n4",
-        "label": "t:general.primary"
+        "default": "open_sans_n4",
+        "label": "t:general.primary",
+        "info": "t:info.primary_font_weights"
       }
     ]
   },

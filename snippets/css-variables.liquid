@@ -1,9 +1,30 @@
+{%- liquid
+  # Weights the theme's `font-light` … `font-bold` utilities can ask for, each
+  # paired with its italic. `font_modify` returns nil when the merchant's chosen
+  # font doesn't ship a variant, so every one is guarded — an unguarded nil
+  # would emit a broken @font-face rule. Skipping instead lets the browser
+  # synthesise the nearest weight it does have.
+  #
+  # Declaring a variant is cheap: browsers only download the ones actually
+  # matched by rendered text, so this costs a few hundred bytes of inline CSS
+  # rather than ten font requests.
+  assign font_weights = '300,400,500,600,700' | split: ','
+-%}
+
 {% style %}
-  {% # Loads all font variantions with display: swap %}
-  {{ settings.type_primary_font | font_face: font_display: 'swap' }}
-  {{ settings.type_primary_font | font_modify: 'weight', 'bold' | font_face: font_display: 'swap' }}
-  {{ settings.type_primary_font | font_modify: 'weight', 'bold' | font_modify: 'style', 'italic' | font_face: font_display: 'swap' }}
-  {{ settings.type_primary_font | font_modify: 'style', 'italic' | font_face: font_display: 'swap' }}
+  {% # Loads all font variations with display: swap %}
+  {%- for weight in font_weights -%}
+    {%- assign font_variant = settings.type_primary_font | font_modify: 'weight', weight -%}
+
+    {%- if font_variant != blank -%}
+      {{ font_variant | font_face: font_display: 'swap' }}
+
+      {%- assign font_variant_italic = font_variant | font_modify: 'style', 'italic' -%}
+      {%- if font_variant_italic != blank -%}
+        {{ font_variant_italic | font_face: font_display: 'swap' }}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
 
   :root {
     --font-primary--family: {{ settings.type_primary_font.family }}, {{ settings.type_primary_font.fallback_families }};
