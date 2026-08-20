@@ -27,10 +27,16 @@
   --color-page: var(--color-background);
   --color-ink: var(--color-foreground);
   --font-primary: var(--font-primary--family);
-  /* Every money figure in the theme carries `font-price`, which resolves to the
-     self-hosted Newsreader (see snippets/css-variables.liquid). It's deliberately
-     independent of the primary font setting — prices stay in Newsreader whatever
-     the merchant picks in the theme editor. */
+  /* Newsreader leads the serif stack, so `font-serif` picks up the self-hosted
+     face (see snippets/css-variables.liquid) instead of Georgia/Times. The rest
+     of Tailwind's default stack stays on as the fallback for the moment before
+     the webfont lands, and for the scripts its subsets don't cover. */
+  --font-serif: Newsreader, ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+
+  /* Every money figure in the theme carries `font-price`. Same face as
+     `font-serif`, kept as its own token so prices can be retuned without
+     touching headings. Deliberately independent of the primary font setting —
+     prices stay in Newsreader whatever the merchant picks in the theme editor. */
   --font-price: var(--font-price--family);
   --radius-input: var(--style-border-radius-inputs);
 }
