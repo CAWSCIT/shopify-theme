@@ -1,0 +1,131 @@
+{% doc %}
+  Renders a product card — cover art on a tinted panel, then the title, an
+  optional secondary line, and the price. The whole card is one link.
+
+  Colours and the panel's aspect ratio are read from custom properties so a
+  parent can theme a whole grid at once by setting them on the container:
+  `--card-bg`, `--card-border`, `--card-media-bg`, `--card-media-aspect`.
+  Every one has a fallback, so the card also stands on its own.
+
+  @param {product} product - The product to render
+  @param {string} [subtitle] - A line between the title and the price
+  @param {string} [sizes] - The `sizes` attribute for the cover image
+  @param {string} [loading] - Image loading strategy, `lazy` (default) or `eager`
+
+  @example
+  {% render 'product-card', product: product %}
+  {% render 'product-card',
+    product: product,
+    subtitle: product.metafields.custom.subtitle,
+    sizes: '(min-width: 48rem) 25vw, 50vw'
+  %}
+{% enddoc %}
+
+{%- liquid
+  assign card_loading = loading | default: 'lazy'
+  assign card_sizes = sizes | default: '(min-width: 48rem) 25vw, 50vw'
+
+  # `price_varies` is true only when the cheapest and dearest variants differ,
+  # which is the one case where a single figure would misrepresent the product.
+  assign price = product.price | money
+  if product.price_varies
+    assign price = 'products.price.from_price_html' | t: price: price
+  endif
+
+  # `compare_at_price` is left set after a sale ends, so it only means "on sale"
+  # while it's still above the current price.
+  assign on_sale = false
+  if product.compare_at_price > product.price
+    assign on_sale = true
+  endif
+-%}
+
+<a class="product-card" href="{{ product.url }}">
+  <div class="product-card__media">
+    {%- if product.featured_image != blank -%}
+      {{
+        product.featured_image
+        | image_url: width: 800
+        | image_tag:
+          widths: '200, 300, 400, 600, 800',
+          sizes: card_sizes,
+          loading: card_loading,
+          class: 'product-card__image'
+      }}
+    {%- else -%}
+      {{ 'product-1' | placeholder_svg_tag: 'product-card__image' }}
+    {%- endif -%}
+  </div>
+
+  <div class="flex flex-col gap-1 px-4 py-4 lg:px-5 lg:py-5">
+    <h3 class="text-base font-semibold">{{ product.title }}</h3>
+
+    {%- if subtitle != blank -%}
+      <p class="product-card__subtitle text-sm leading-snug">{{ subtitle }}</p>
+    {%- endif -%}
+
+    <p class="mt-1 flex flex-wrap items-baseline gap-x-2 text-xl font-light font-price">
+      {%- if on_sale -%}
+        <span class="sr-only">{{ 'products.price.sale_price' | t }}</span>
+      {%- endif -%}
+
+      <span>{{ price }}</span>
+
+      {%- if on_sale -%}
+        <s class="product-card__compare text-sm">
+          <span class="sr-only">{{ 'products.price.regular_price' | t }}</span>
+          {{- product.compare_at_price | money -}}
+        </s>
+      {%- endif -%}
+    </p>
+  </div>
+</a>
+
+{% stylesheet %}
+  .product-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    background-color: var(--card-bg, #ffffff);
+    border: 1px solid var(--card-border, rgb(0 0 0 / 8%));
+    border-radius: var(--card-radius, 2px);
+    transition: box-shadow 150ms ease;
+  }
+
+  .product-card:hover,
+  .product-card:focus-visible {
+    box-shadow: 0 6px 20px rgb(0 0 0 / 8%);
+  }
+
+  /*
+   * A fixed ratio keeps the content rows of every card in a grid aligned no
+   * matter how tall or wide the individual cover art is — the art is contained
+   * inside the panel rather than cropped, so nothing gets cut off.
+   */
+  .product-card__media {
+    aspect-ratio: var(--card-media-aspect, 4 / 3);
+    background-color: var(--card-media-bg, rgb(0 0 0 / 4%));
+  }
+
+  /*
+   * Unlayered, so this beats the `height: auto` that `critical.css` sets on
+   * every image from `@layer reset`.
+   */
+  .product-card__image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  /* Dimmed rather than a fixed grey, so it works on any card background. */
+  .product-card__subtitle {
+    opacity: 0.65;
+  }
+
+  .product-card__compare {
+    opacity: 0.55;
+  }
+{% endstylesheet %}

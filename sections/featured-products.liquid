@@ -1,0 +1,298 @@
+{%- liquid
+  assign product_limit = section.settings.products_to_show
+  assign source_collection = section.settings.collection
+
+  # The hand-picked list takes the first slots and the collection tops up
+  # whatever is left, so a merchant can pin one title to the front without
+  # having to curate the whole row.
+  assign manual_products = section.settings.featured_products
+  if manual_products == blank
+    assign manual_products = '' | split: ','
+  endif
+
+  assign card_products = manual_products
+
+  if source_collection != blank
+    # Rejecting each pinned handle from the collection means a product that's in
+    # both places shows once, in its pinned position, instead of twice. The
+    # first pass uses a handle no product can have — it rejects nothing, and is
+    # there to materialise `collection.products` into the plain array `concat`
+    # needs below.
+    assign fill_products = source_collection.products | reject: 'handle', ''
+    assign manual_handles = manual_products | map: 'handle'
+
+    for handle in manual_handles
+      assign fill_products = fill_products | reject: 'handle', handle
+    endfor
+
+    assign card_products = card_products | concat: fill_products
+  endif
+
+  # The "view all" link has nowhere to point without a collection behind it.
+  assign show_view_all = false
+  if source_collection != blank and section.settings.show_view_all
+    assign show_view_all = true
+  endif
+
+  assign view_all_label = section.settings.view_all_label
+  if view_all_label == blank
+    assign view_all_label = 'products.view_all' | t
+  endif
+
+  # Stored as a select value, so it arrives as a string — `plus: 0` makes it a
+  # number the `sizes` arithmetic below can divide by.
+  assign columns_mobile = section.settings.columns_mobile | plus: 0
+  assign columns_desktop = section.settings.columns_desktop
+
+  # Each card is one grid column wide, so its share of the viewport is just the
+  # column count. Roughly right is enough — it only steers which source the
+  # browser picks out of `srcset`.
+  assign desktop_width = 100 | divided_by: columns_desktop
+  assign mobile_width = 100 | divided_by: columns_mobile
+  assign card_sizes = '(min-width: 48rem) ' | append: desktop_width | append: 'vw, ' | append: mobile_width | append: 'vw'
+
+  # `subtitle_metafield` is written as `namespace.key` in one field to keep the
+  # settings panel short.
+  assign metafield_parts = section.settings.subtitle_metafield | split: '.'
+  assign metafield_namespace = metafield_parts[0]
+  assign metafield_key = metafield_parts[1]
+-%}
+
+<section
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --section-link: {{ section.settings.link_color }};
+    --section-rule: {{ section.settings.text_color | color_modify: 'alpha', 0.15 }};
+    --card-bg: {{ section.settings.card_background_color }};
+    --card-border: {{ section.settings.text_color | color_modify: 'alpha', 0.1 }};
+    --card-media-bg: {{ section.settings.media_background_color }};
+    --card-media-aspect: {{ section.settings.media_aspect_ratio }};
+    --columns-mobile: {{ columns_mobile }};
+    --columns-desktop: {{ columns_desktop }};
+    --grid-gap: {{ section.settings.grid_gap }}px;
+  "
+>
+  <div class="mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] py-12 lg:py-16">
+    {%- if section.settings.heading != blank or show_view_all -%}
+      <div class="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 border-b border-[var(--section-rule)] pb-4">
+        {%- if section.settings.heading != blank -%}
+          <h2 class="font-serif text-3xl leading-tight font-normal lg:text-4xl">{{ section.settings.heading }}</h2>
+        {%- endif -%}
+
+        {%- if show_view_all -%}
+          <a
+            href="{{ source_collection.url }}"
+            class="ml-auto inline-flex shrink-0 items-center gap-2 text-[var(--section-link)] no-underline hover:underline hover:underline-offset-4"
+          >
+            {{- view_all_label -}}
+            <span class="size-4 shrink-0 [&>svg]:size-full" aria-hidden="true">
+              {{- 'icon-arrow-right.svg' | inline_asset_content -}}
+            </span>
+          </a>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+
+    {%- if card_products.size > 0 -%}
+      <ul role="list" class="featured-products__grid mt-8 list-none pl-0 lg:mt-10">
+        {%- for product in card_products limit: product_limit -%}
+          {%- liquid
+            assign subtitle = ''
+            case section.settings.subtitle_source
+              when 'metafield'
+                assign subtitle = product.metafields[metafield_namespace][metafield_key] | metafield_text
+              when 'product_type'
+                assign subtitle = product.type
+              when 'vendor'
+                assign subtitle = product.vendor
+            endcase
+          -%}
+
+          <li>
+            {% render 'product-card', product: product, subtitle: subtitle, sizes: card_sizes %}
+          </li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  /*
+   * The column counts are merchant settings, so the grid is built from custom
+   * properties here rather than from utility classes — Tailwind can only emit
+   * the classes it finds in the markup, and these values aren't known until the
+   * page renders.
+   */
+  .featured-products__grid {
+    display: grid;
+    grid-template-columns: repeat(var(--columns-mobile, 2), minmax(0, 1fr));
+    gap: var(--grid-gap, 20px);
+  }
+
+  @media (min-width: 48rem) {
+    .featured-products__grid {
+      grid-template-columns: repeat(var(--columns-desktop, 4), minmax(0, 1fr));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:general.featured_products",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:labels.heading",
+      "default": "Books and literature"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "t:labels.collection",
+      "info": "t:info.featured_collection"
+    },
+    {
+      "type": "product_list",
+      "id": "featured_products",
+      "label": "t:labels.featured_products",
+      "limit": 12,
+      "info": "t:info.featured_products"
+    },
+    {
+      "type": "range",
+      "id": "products_to_show",
+      "label": "t:labels.products_to_show",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "checkbox",
+      "id": "show_view_all",
+      "label": "t:labels.show_view_all",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "view_all_label",
+      "label": "t:labels.view_all_label",
+      "info": "t:info.view_all_label",
+      "default": "All books",
+      "visible_if": "{{ section.settings.show_view_all }}"
+    },
+    {
+      "type": "header",
+      "content": "t:general.card"
+    },
+    {
+      "type": "select",
+      "id": "subtitle_source",
+      "label": "t:labels.subtitle_source",
+      "info": "t:info.subtitle_source",
+      "default": "metafield",
+      "options": [
+        { "value": "metafield", "label": "t:options.subtitle_source.metafield" },
+        { "value": "product_type", "label": "t:options.subtitle_source.product_type" },
+        { "value": "vendor", "label": "t:options.subtitle_source.vendor" },
+        { "value": "none", "label": "t:options.subtitle_source.none" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "subtitle_metafield",
+      "label": "t:labels.subtitle_metafield",
+      "info": "t:info.subtitle_metafield",
+      "default": "custom.subtitle",
+      "visible_if": "{{ section.settings.subtitle_source == 'metafield' }}"
+    },
+    {
+      "type": "select",
+      "id": "media_aspect_ratio",
+      "label": "t:labels.media_aspect_ratio",
+      "default": "4 / 3",
+      "options": [
+        { "value": "4 / 3", "label": "t:options.aspect_ratio.landscape" },
+        { "value": "1 / 1", "label": "t:options.aspect_ratio.square" },
+        { "value": "3 / 4", "label": "t:options.aspect_ratio.portrait" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.layout"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "t:labels.columns_desktop",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "select",
+      "id": "columns_mobile",
+      "label": "t:labels.columns_mobile",
+      "default": "2",
+      "options": [
+        { "value": "1", "label": "1" },
+        { "value": "2", "label": "2" }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "grid_gap",
+      "label": "t:labels.grid_gap",
+      "min": 0,
+      "max": 48,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "link_color",
+      "label": "t:labels.link_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "card_background_color",
+      "label": "t:labels.card_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "media_background_color",
+      "label": "t:labels.media_background_color",
+      "default": "#EAE6DC"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:general.featured_products"
+    }
+  ]
+}
+{% endschema %}

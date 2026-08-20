@@ -20,5 +20,5 @@
     <span aria-hidden="true">{{ 'cart.title' | t }}</span>
     <span aria-hidden="true">·</span>
   {%- endif -%}
-  <span aria-hidden="true" data-cart-total>{{ cart.total_price | money }}</span>
+  <span aria-hidden="true" data-cart-total class="font-price">{{ cart.total_price | money }}</span>
 </a>

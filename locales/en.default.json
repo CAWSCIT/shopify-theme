@@ -67,6 +67,14 @@
     "expires_on": "Expires on {{ expires_on }}",
     "use_at_checkout": "Use this gift card at checkout"
   },
+  "products": {
+    "view_all": "View all",
+    "price": {
+      "from_price_html": "From {{ price }}",
+      "regular_price": "Regular price",
+      "sale_price": "Sale price"
+    }
+  },
   "password": {
     "title": "This shop is private",
     "password": "Password",
