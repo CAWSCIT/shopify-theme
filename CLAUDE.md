@@ -1,0 +1,1 @@
+/Users/kalobtaulien/Sites/Shopify/theme/cawso/AGENTS.md
