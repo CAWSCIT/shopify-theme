@@ -11,3 +11,10 @@
 #
 # Ignore templates and sections with a regular expression:
 #   /(templates|sections)/.*\.json/
+
+# Frontend build sources — only the compiled output in assets/ belongs on Shopify.
+src/*
+node_modules/*
+vite.config.js
+package.json
+package-lock.json

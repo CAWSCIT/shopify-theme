@@ -1,0 +1,23 @@
+{
+  "name": "cawso",
+  "version": "1.0.0",
+  "description": "Shopify Skeleton Theme",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n vite,shopify -c cyan,green \"npm:dev:assets\" \"npm:dev:theme\"",
+    "dev:assets": "vite build --watch --mode development",
+    "dev:theme": "shopify theme dev",
+    "build": "vite build",
+    "clean": "rm -f assets/theme.css assets/theme.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "concurrently": "^10.0.5",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.2"
+  }
+}

@@ -1,0 +1,30 @@
+/**
+ * Tailwind entry point. Compiled to `assets/theme.css` by Vite.
+ *
+ * Preflight is intentionally left out: `assets/critical.css` already ships a
+ * reset, and loading both would mean two competing resets. To opt back in,
+ * replace the three imports below with a single `@import "tailwindcss";` and
+ * strip the reset out of critical.css.
+ */
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+
+/* Class scanning: every place Liquid markup can live. */
+@source "../../blocks/**/*.liquid";
+@source "../../layout/**/*.liquid";
+@source "../../sections/**/*.liquid";
+@source "../../snippets/**/*.liquid";
+@source "../../src/**/*.js";
+
+/* Bridge the theme settings (see snippets/css-variables.liquid) into Tailwind, so
+   `bg-page`, `text-ink`, `font-primary` and `rounded-input` follow the merchant's
+   theme editor choices. Token names deliberately differ from the source variable
+   names — reusing them would create a self-referential `var()` cycle on :root. */
+@theme {
+  --color-page: var(--color-background);
+  --color-ink: var(--color-foreground);
+  --font-primary: var(--font-primary--family);
+  --radius-input: var(--style-border-radius-inputs);
+}

@@ -20,6 +20,12 @@
     {% # Load and preload the critical CSS %}
     {{ 'critical.css' | asset_url | stylesheet_tag: preload: true }}
 
+    {% # Tailwind utilities, compiled by Vite from src/styles/tailwind.css %}
+    {{ 'theme.css' | asset_url | stylesheet_tag }}
+
+    {% # Global theme JS, compiled by Vite from src/main.js %}
+    <script src="{{ 'theme.js' | asset_url }}" type="module"></script>
+
     {% # Social, title, etc. %}
     {% render 'meta-tags' %}
 
