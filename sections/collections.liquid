@@ -5,51 +5,194 @@
   https://shopify.dev/docs/storefronts/themes/architecture/templates/collection
 {% endcomment %}
 
-<h1>{{ 'collections.title' | t }}</h1>
+{%- liquid
+  # Stored as a select value, so it arrives as a string — `plus: 0` makes it a
+  # number the grid can repeat.
+  assign columns_mobile = section.settings.columns_mobile | plus: 0
+  assign columns_desktop = section.settings.columns_desktop
 
-<div
-  class="collections {{ section.settings.grid_item_width }}"
-  style="--grid-gap: {{ section.settings.grid_gap }}px"
+  # The thumbnail is a fixed square at every breakpoint, so `sizes` is just that
+  # square. Built up here because a filter argument can't itself be filtered.
+  assign media_sizes = section.settings.media_size | append: 'px'
+-%}
+
+<section
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --card-bg: {{ section.settings.card_background_color }};
+    --card-border: {{ section.settings.text_color | color_modify: 'alpha', 0.1 }};
+    --card-media-bg: {{ section.settings.media_background_color }};
+    --card-media-fit: {{ section.settings.media_fit }};
+    --card-media-size: {{ section.settings.media_size }}px;
+    --columns-mobile: {{ columns_mobile }};
+    --columns-desktop: {{ columns_desktop }};
+    --grid-gap: {{ section.settings.grid_gap }}px;
+  "
 >
-  {% for collection in collections %}
-    <a class="collection-card" href="{{ collection.url }}">
-      {% if collection.featured_image %}
-        {% render 'image',
-          class: 'collection-card__image',
-          image: collection.featured_image,
-          width: 600,
-          height: 600,
-          crop: 'center'
-        %}
-      {% endif %}
+  <div class="mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] py-12 lg:py-16">
+    {%- if section.settings.show_heading -%}
+      <h1 class="font-serif text-4xl leading-tight font-light lg:text-5xl">{{ 'collections.title' | t }}</h1>
+    {%- endif -%}
 
-      <div class="collection-card__content">
-        <p>{{ collection.title }}</p>
+    {%- if collections.size > 0 -%}
+      <ul
+        role="list"
+        class="collections__grid list-none pl-0 {% if section.settings.show_heading %}mt-8 lg:mt-10{% endif %}"
+      >
+        {%- for collection in collections -%}
+          {%- liquid
+            assign description = ''
+            if section.settings.show_description
+              assign description = collection.description | strip_html | truncatewords: 15
+            endif
 
-        {% if collection.description %}
-          <p>{{ collection.description | strip_html | truncatewords: 15 }}</p>
-        {% endif %}
-      </div>
-    </a>
-  {% endfor %}
-</div>
+            # There's no `price_min` on a collection, so the range is scanned off
+            # the products themselves. A `for` loop over `collection.products`
+            # tops out at 50 either way, hence the explicit limit — a collection
+            # deeper than that is priced from its first 50 products in the
+            # collection's own sort order.
+            assign price_label = ''
+
+            if section.settings.show_price
+              assign has_price = false
+              assign price_min = 0
+              assign price_max = 0
+
+              for product in collection.products limit: 50
+                if has_price == false
+                  assign price_min = product.price_min
+                  assign price_max = product.price_max
+                  assign has_price = true
+                else
+                  if product.price_min < price_min
+                    assign price_min = product.price_min
+                  endif
+                  if product.price_max > price_max
+                    assign price_max = product.price_max
+                  endif
+                endif
+              endfor
+
+              # One figure can only stand for the whole collection when every
+              # product carries it — otherwise it has to read as a floor.
+              if has_price
+                assign price_label = price_min | money
+
+                if price_max > price_min
+                  assign price_label = 'products.price.from_price_html' | t: price: price_label
+                else
+                  assign price_label = 'products.price.each_price_html' | t: price: price_label
+                endif
+              endif
+            endif
+          -%}
+
+          <li>
+            <a class="collection-card" href="{{ collection.url }}">
+              <div class="collection-card__media">
+                {%- if collection.featured_image != blank -%}
+                  {{
+                    collection.featured_image
+                    | image_url: width: 400
+                    | image_tag:
+                      widths: '100, 200, 300, 400',
+                      sizes: media_sizes,
+                      loading: 'lazy',
+                      class: 'collection-card__image'
+                  }}
+                {%- else -%}
+                  {{ 'collection-1' | placeholder_svg_tag: 'collection-card__image' }}
+                {%- endif -%}
+              </div>
+
+              <div class="flex min-w-0 flex-col gap-1">
+                <h2 class="font-serif text-2xl leading-tight font-normal">{{ collection.title }}</h2>
+
+                {%- if description != blank -%}
+                  <p class="collection-card__description text-base leading-snug">{{ description }}</p>
+                {%- endif -%}
+
+                {%- if price_label != blank -%}
+                  <p class="collection-card__price text-base leading-snug font-price">{{ price_label }}</p>
+                {%- endif -%}
+              </div>
+            </a>
+          </li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+  </div>
+</section>
 
 {% stylesheet %}
-  .collections {
+  /*
+   * The column counts are merchant settings, so the grid is built from custom
+   * properties here rather than from utility classes — Tailwind can only emit
+   * the classes it finds in the markup, and these values aren't known until the
+   * page renders.
+   */
+  .collections__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(var(--collection-card-size), 100%), 1fr));
-    gap: var(--grid-gap);
+    grid-template-columns: repeat(var(--columns-mobile, 1), minmax(0, 1fr));
+    gap: var(--grid-gap, 20px);
   }
-  .collections--compact {
-    --collection-card-size: 160px;
+
+  @media (min-width: 48rem) {
+    .collections__grid {
+      grid-template-columns: repeat(var(--columns-desktop, 3), minmax(0, 1fr));
+    }
   }
-  .collections--full {
-    --collection-card-size: 280px;
-  }
+
+  /*
+   * Laid out sideways rather than stacked: the thumbnail is a marker beside the
+   * name, not the subject of the card, so it stays small and the title leads.
+   */
   .collection-card {
     display: flex;
-    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    height: 100%;
+    padding: 1rem 1.25rem;
+    color: inherit;
+    text-decoration: none;
+    background-color: var(--card-bg, #ffffff);
+    border: 1px solid var(--card-border, rgb(0 0 0 / 8%));
+    border-radius: var(--card-radius, 2px);
+    transition: box-shadow 150ms ease;
+  }
+
+  .collection-card:hover,
+  .collection-card:focus-visible {
+    box-shadow: 0 6px 20px rgb(0 0 0 / 8%);
+  }
+
+  /*
+   * A fixed square keeps the titles of every card in a row starting on the same
+   * line, whatever shape the collection images happen to be.
+   */
+  .collection-card__media {
+    flex: 0 0 auto;
+    width: var(--card-media-size, 88px);
+    height: var(--card-media-size, 88px);
+    background-color: var(--card-media-bg, rgb(0 0 0 / 4%));
+  }
+
+  /*
+   * Unlayered, so this beats the `height: auto` that `critical.css` sets on
+   * every image from `@layer reset`.
+   */
+  .collection-card__image {
     width: 100%;
+    height: 100%;
+    object-fit: var(--card-media-fit, cover);
+  }
+
+  /* Dimmed rather than a fixed grey, so it works on any card background. */
+  .collection-card__description,
+  .collection-card__price {
+    opacity: 0.7;
   }
 {% endstylesheet %}
 
@@ -58,24 +201,110 @@
   "name": "t:general.collections_grid",
   "settings": [
     {
+      "type": "checkbox",
+      "id": "show_heading",
+      "label": "t:labels.show_heading",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:general.card"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "t:labels.show_description",
+      "info": "t:info.collection_description",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_price",
+      "label": "t:labels.show_price",
+      "info": "t:info.collection_price",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "media_size",
+      "label": "t:labels.media_size",
+      "min": 48,
+      "max": 128,
+      "step": 8,
+      "unit": "px",
+      "default": 88
+    },
+    {
       "type": "select",
-      "id": "grid_item_width",
-      "label": "t:labels.grid_item_width",
+      "id": "media_fit",
+      "label": "t:labels.media_fit",
+      "info": "t:info.media_fit",
+      "default": "cover",
       "options": [
-        { "value": "collections--compact", "label": "t:options.size.small" },
-        { "value": "collections--full", "label": "t:options.size.large" }
-      ],
-      "default": "collections--full"
+        { "value": "cover", "label": "t:options.media_fit.cover" },
+        { "value": "contain", "label": "t:options.media_fit.contain" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.layout"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "t:labels.columns_desktop",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "select",
+      "id": "columns_mobile",
+      "label": "t:labels.columns_mobile",
+      "default": "1",
+      "options": [
+        { "value": "1", "label": "1" },
+        { "value": "2", "label": "2" }
+      ]
     },
     {
       "type": "range",
       "id": "grid_gap",
       "label": "t:labels.grid_gap",
       "min": 0,
-      "max": 50,
-      "step": 5,
+      "max": 48,
+      "step": 4,
       "unit": "px",
-      "default": 10
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "card_background_color",
+      "label": "t:labels.card_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "media_background_color",
+      "label": "t:labels.media_background_color",
+      "default": "#EAE6DC"
     }
   ],
   "presets": [{ "name": "t:general.collections_grid" }]

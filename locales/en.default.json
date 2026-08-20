@@ -70,6 +70,7 @@
   "products": {
     "view_all": "View all",
     "price": {
+      "each_price_html": "{{ price }} each",
       "from_price_html": "From {{ price }}",
       "regular_price": "Regular price",
       "sale_price": "Sale price"
