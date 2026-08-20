@@ -14,8 +14,11 @@
     "footer": {
       "type": "footer",
       "settings": {
-        "menu": "",
-        "show_payment_icons": true
+        "logo_width": 64,
+        "menu": "footer",
+        "show_country_selector": true,
+        "background_color": "#1c2320",
+        "text_color": "#e5e2d9"
       }
     }
   },

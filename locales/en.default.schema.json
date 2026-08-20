@@ -4,6 +4,8 @@
     "article": "Article",
     "block": "Block",
     "blog": "Blog",
+    "bottom_bar": "Bottom bar",
+    "brand": "Brand",
     "cart": "Cart",
     "collection": "Collection",
     "collections": "Collections",
@@ -36,6 +38,7 @@
   },
   "labels": {
     "accent_color": "Accent color",
+    "address": "Address",
     "alignment": "Alignment",
     "background": "Background",
     "background_color": "Background color",
@@ -59,6 +62,7 @@
     "tagline": "Tagline",
     "page_margin": "Page margin",
     "page_width": "Page width",
+    "show_country_selector": "Show country/region selector",
     "show_payment_icons": "Show payment icons",
     "text_color": "Text color",
     "text_style": "Text style",
@@ -68,7 +72,8 @@
     "brand_name_fallback": "Leave blank to use the store name from Settings → Store details.",
     "label_fallback": "Leave blank to use the collection title.",
     "menu_optional": "Top-level links show beside the logo on desktop. On smaller screens the whole menu moves into the drawer. Leave blank to hide it.",
-    "logo_fallback": "Leave blank to use the logo bundled with the theme."
+    "logo_fallback": "Leave blank to use the logo bundled with the theme.",
+    "footer_menu": "Each top-level menu item becomes a column heading, and its nested items become the links below it."
   },
   "options": {
     "count_label": {

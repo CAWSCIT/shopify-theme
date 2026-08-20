@@ -39,6 +39,9 @@
     "accessibility": {
       "open_menu": "Open menu"
     },
+    "country_region": "Country/region",
+    "footer_navigation": "Footer navigation",
+    "update_country": "Update country/region",
     "navigation": {
       "main_menu": "Main menu",
       "catalog": "Catalog",
