@@ -18,6 +18,7 @@
     "group": "Group",
     "header": "Header",
     "layout": "Layout",
+    "link": "Link",
     "main": "Main",
     "page": "Page",
     "password": "Password",
@@ -34,23 +35,47 @@
     "typography": "Typography"
   },
   "labels": {
+    "accent_color": "Accent color",
     "alignment": "Alignment",
     "background": "Background",
+    "background_color": "Background color",
+    "brand_name": "Shop name",
+    "count_label": "Count label",
+    "description": "Description",
     "foreground": "Foreground",
     "grid_gap": "Grid spacing",
     "grid_item_width": "Grid item width",
     "input_corner_radius": "Input corner radius",
+    "label": "Label",
     "layout_direction": "Layout direction",
+    "link_url": "Link",
+    "logo": "Logo",
+    "logo_width": "Logo width",
     "menu": "Menu",
     "customer_account_menu": "Customer account menu",
+    "nav_background_color": "Catalog bar background",
     "padding": "Padding",
+    "show_search": "Show search",
+    "tagline": "Tagline",
     "page_margin": "Page margin",
     "page_width": "Page width",
     "show_payment_icons": "Show payment icons",
+    "text_color": "Text color",
     "text_style": "Text style",
     "text": "Text"
   },
+  "info": {
+    "brand_name_fallback": "Leave blank to use the store name from Settings → Store details.",
+    "label_fallback": "Leave blank to use the collection title.",
+    "logo_fallback": "Leave blank to use the logo bundled with the theme."
+  },
   "options": {
+    "count_label": {
+      "products": "6 products",
+      "titles": "6 titles",
+      "items": "6 items",
+      "none": "Hide the count"
+    },
     "alignment": {
       "left": "Left",
       "center": "Center",
@@ -72,6 +97,6 @@
       "title": "Title",
       "subtitle": "Subtitle",
       "normal": "Normal text"
-    },
+    }
   }
 }

@@ -13,10 +13,77 @@
   "sections": {
     "header": {
       "type": "header",
-      "settings": {}
+      "blocks": {
+        "books": {
+          "type": "collection",
+          "settings": {
+            "collection": "automated-collection",
+            "label": "",
+            "count_label": "titles"
+          }
+        },
+        "pamphlets": {
+          "type": "collection",
+          "settings": {
+            "collection": "frontpage",
+            "label": "",
+            "count_label": "titles"
+          }
+        },
+        "keytags": {
+          "type": "collection",
+          "settings": {
+            "collection": "hydrogen",
+            "label": "",
+            "count_label": "products"
+          }
+        },
+        "medallions": {
+          "type": "collection",
+          "settings": {
+            "collection": "medallions",
+            "label": "",
+            "count_label": "products"
+          }
+        },
+        "cards": {
+          "type": "collection",
+          "settings": {
+            "collection": "cards",
+            "label": "",
+            "count_label": "products"
+          }
+        },
+        "miscellaneous": {
+          "type": "collection",
+          "settings": {
+            "collection": "miscellaneous",
+            "label": "",
+            "count_label": "products"
+          }
+        }
+      },
+      "block_order": [
+        "books",
+        "pamphlets",
+        "keytags",
+        "medallions",
+        "cards",
+        "miscellaneous"
+      ],
+      "settings": {
+        "logo_width": 48,
+        "brand_name": "Cocaine Anonymous",
+        "tagline": "World Service Shop",
+        "show_search": true,
+        "background_color": "#0d463d",
+        "nav_background_color": "#0a3b33",
+        "text_color": "#ffffff",
+        "accent_color": "#BE5115"
+      }
     }
   },
   "order": [
     "header"
-  ],
+  ]
 }

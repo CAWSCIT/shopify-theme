@@ -1,0 +1,23 @@
+{% doc %}
+  Renders the header's cart button, showing the running cart total.
+
+  @param {boolean} [compact] - Drop the "Cart" wording, for tight mobile rows
+
+  @example
+  {% render 'header-cart-link' %}
+  {% render 'header-cart-link', compact: true %}
+{% enddoc %}
+
+<a
+  href="{{ routes.cart_url }}"
+  aria-label="{{ 'cart.title' | t }}: {{ 'cart.item_count' | t: count: cart.item_count }}, {{ cart.total_price | money }}"
+  class="flex shrink-0 items-center gap-2 rounded-xs bg-[var(--header-accent)] px-4 py-2 text-sm font-medium text-white no-underline transition hover:opacity-90"
+>
+  {%- if compact -%}
+    <span class="size-4 shrink-0 [&>svg]:size-full">{{ 'icon-cart.svg' | inline_asset_content }}</span>
+  {%- else -%}
+    <span aria-hidden="true">{{ 'cart.title' | t }}</span>
+    <span aria-hidden="true">·</span>
+  {%- endif -%}
+  <span aria-hidden="true" data-cart-total>{{ cart.total_price | money }}</span>
+</a>

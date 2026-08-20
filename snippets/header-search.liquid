@@ -1,0 +1,36 @@
+{% doc %}
+  Renders the header's catalog search field.
+
+  Colours come from the `--header-*` custom properties set on the surrounding
+  header element, so this snippet only needs to be told how wide to be.
+
+  @param {string} id - Unique id for the input, so its label stays associated
+  @param {string} [classes] - Extra classes for the form, typically a width
+
+  @example
+  {% render 'header-search', id: 'header-search-desktop', classes: 'w-64 xl:w-80' %}
+{% enddoc %}
+
+<form
+  action="{{ routes.search_url }}"
+  method="get"
+  role="search"
+  class="flex shrink-0 items-center gap-2 rounded-xs border-white/50 bg-[var(--header-search-bg)] px-3 py-2 ring-1 ring-white/10 focus-within:ring-white/30 {{ classes }}"
+>
+  <label for="{{ id }}" class="sr-only">{{ 'search.title' | t }}</label>
+  <input
+    id="{{ id }}"
+    type="search"
+    name="q"
+    value="{{ search.terms | escape }}"
+    placeholder="{{ 'search.header_placeholder' | t }}"
+    class="order-2 w-full min-w-0 appearance-none border-0 bg-transparent text-sm text-[var(--header-text)] placeholder:text-[var(--header-text)] placeholder:opacity-60 focus:outline-none"
+  >
+  <button
+    type="submit"
+    class="order-1 flex size-4 shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-[var(--header-text)] opacity-70 transition hover:opacity-100 [&>svg]:size-full"
+  >
+    <span class="sr-only">{{ 'search.submit' | t }}</span>
+    {{ 'icon-search.svg' | inline_asset_content }}
+  </button>
+</form>
