@@ -167,6 +167,7 @@
     "card_subtitle": "The small line under the card title, for example a price or a short description.",
     "page_button": "A link given class=\"button\" in the page's HTML renders as a button in this colour, as does a button tag.",
     "page_padding": "The space above and below the content, inside the coloured background.",
+    "password_logo": "Shown above the heading. Leave blank to use the store name instead — the logo bundled with the theme is cut for the dark header and won't read on this background.",
     "category_menu": "Shown down the left, with the one you're browsing highlighted. Each item's title is the product type it filters by. Leave blank to list every product type in the catalog, alphabetically.",
     "filter_menu": "Shown as pills above the list, with the collection you're on highlighted. Leave blank to hide them.",
     "media_fit": "Fill crops the image to the shape above. Fit shows all of it, with the image background around the edges.",
