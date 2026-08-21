@@ -1,49 +1,25 @@
-<h1 align="center" style="position: relative;">
-  <br>
-    <img src="./assets/shoppy-x-ray.svg" alt="logo" width="200">
-  <br>
-  Shopify Skeleton Theme
-</h1>
+# CAWSO
 
-A minimal, carefully structured Shopify theme designed to help you quickly get started. Designed with modularity, maintainability, and Shopify's best practices in mind.
+The Shopify theme for the Cocaine Anonymous World Service Office shop — the
+literature, keytags, medallions and cards ordered by groups and by members.
 
-<p align="center">
-  <a href="./LICENSE.md"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License"></a>
-  <a href="./actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Shopify/skeleton-theme/actions/workflows/ci.yml/badge.svg"></a>
-</p>
+Built on Shopify's [Skeleton Theme](https://github.com/Shopify/skeleton-theme),
+though little of it is left: the section grid in `assets/critical.css` and the
+layout's shape are the parts that survive.
 
 ## Getting started
 
-### Prerequisites
-
-Before starting, ensure you have the latest Shopify CLI installed:
-
-- [Shopify CLI](https://shopify.dev/docs/api/shopify-cli) – helps you download, upload, preview themes, and streamline your workflows
-
-If you use VS Code:
-
-- [Shopify Liquid VS Code Extension](https://shopify.dev/docs/storefronts/themes/tools/shopify-liquid-vscode) – provides syntax highlighting, linting, inline documentation, and auto-completion specifically designed for Liquid templates
-
-### Clone
-
-Clone this repository using Git or Shopify CLI:
+You'll need the [Shopify CLI](https://shopify.dev/docs/api/shopify-cli), and if
+you use VS Code, the [Shopify Liquid extension](https://shopify.dev/docs/storefronts/themes/tools/shopify-liquid-vscode)
+for syntax highlighting, linting and Liquid completion.
 
 ```bash
-git clone git@github.com:Shopify/skeleton-theme.git
-# or
-shopify theme init
-```
-
-### Preview
-
-Run the dev server, which builds the Tailwind bundle on change and serves the
-theme:
-
-```bash
+npm install
 npm run dev
 ```
 
-It runs `shopify theme dev --theme-editor-sync --reconciliation-strategy keep-remote`.
+That runs two things at once: Vite, rebuilding the Tailwind bundle on change,
+and `shopify theme dev --theme-editor-sync --reconciliation-strategy keep-remote`.
 
 Both flags matter. On its own, `shopify theme dev` *replaces* the development
 theme with your local files — so anything arranged in the theme editor is
@@ -62,119 +38,99 @@ which is the right way round for the merchant-owned ones — and git has your co
 if it ever takes the wrong one. Swap it for `keep-local` if you'd rather code
 always win.
 
-## Theme architecture
+**The catch:** `keep-remote` also means a local edit to any JSON file — a
+template, a section group, `config/settings_data.json` — is one `npm run dev`
+away from being replaced by the store's copy. Push before you next run it.
 
-```bash
+### Other scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run build` | One production build. Minified — this is what gets committed. |
+| `npm run dev` | Vite in watch mode plus the CLI dev server. |
+| `npm run clean` | Deletes the two build outputs in `assets/`. |
+
+Run `shopify theme check` before pushing. The repo is set to
+`theme-check:recommended` and currently passes with no offenses.
+
+## Build outputs are committed
+
+`assets/theme.css` and `assets/theme.js` are build artifacts, and they're
+tracked in git — Shopify can only serve flat files out of `assets/`, so the
+compiled bundle has to be in the theme it pushes.
+
+`npm run dev` writes them **unminified**. `npm run build` writes them minified.
+Run the build before committing, or you'll ship the development bundle.
+
+Cache busting is handled by Shopify's `asset_url` filter, which appends its own
+version string — which is why Vite is configured to emit predictable, un-hashed
+filenames straight into `assets/`.
+
+## Layout
+
+```
 .
-├── assets          # Stores static assets (CSS, JS, images, fonts, etc.)
-├── blocks          # Reusable, nestable, customizable UI components
-├── config          # Global theme settings and customization options
-├── layout          # Top-level wrappers for pages (layout templates)
-├── locales         # Translation files for theme internationalization
-├── sections        # Modular full-width page components
-├── snippets        # Reusable Liquid code or HTML fragments
-└── templates       # Templates combining sections to define page structures
+├── assets      # Static files, plus the two compiled bundles
+├── blocks      # Nestable, merchant-configurable components
+├── config      # Global theme settings and their values
+├── layout      # theme.liquid and password.liquid
+├── locales     # Translations (en only for now)
+├── sections    # Full-width page components
+├── snippets    # Reusable Liquid fragments
+├── src         # Tailwind entry point — not pushed to Shopify
+└── templates   # JSON templates wiring sections to page types
 ```
 
-To learn more, refer to the [theme architecture documentation](https://shopify.dev/docs/storefronts/themes/architecture).
+`src/`, `node_modules/`, `vite.config.js` and the `package.json` pair are listed
+in `.shopifyignore`, so only the compiled output in `assets/` reaches the store.
 
-### Templates
+## Conventions
 
-[Templates](https://shopify.dev/docs/storefronts/themes/architecture/templates#template-types) control what's rendered on each type of page in a theme.
+**Styling.** Tailwind utilities go in the markup. Anything utilities can't
+express — a `::backdrop`, a `:has()` selector, styling for the bare `<a>` tags
+that come out of a `richtext` setting — goes in the file's `{% stylesheet %}`
+block. `assets/critical.css` holds only what every page needs: the reset, the
+cascade layer order, the sticky footer, and the `.shopify-section` grid that
+gives sections both a centred column and a `full-width` escape hatch.
 
-The Skeleton Theme scaffolds [JSON templates](https://shopify.dev/docs/storefronts/themes/architecture/templates/json-templates) to make it easy for merchants to customize their store.
+Tailwind's preflight is deliberately left out, because `critical.css` already
+ships a reset and two competing resets is one too many.
 
-None of the template types are required, and not all of them are included in the Skeleton Theme. Refer to the [template types reference](https://shopify.dev/docs/storefronts/themes/architecture/templates#template-types) for a full list.
+**Colours.** Merchant colour settings become CSS custom properties on the
+section's root element, and the CSS reads them from there. That way one section
+can theme everything inside it, snippets and blocks included, without any of
+them knowing which section they're in.
 
-### Sections
+**Fonts.** The primary face comes from a `font_picker` and loads weights 300 to
+700 with their italics. Newsreader is the theme's serif and isn't in Shopify's
+font library, so it's self-hosted out of `assets/` — it backs both `font-serif`
+and `font-price`. Every `| money` figure in the theme carries `font-price`, and
+it stays Newsreader whatever the merchant picks for the primary font.
 
-[Sections](https://shopify.dev/docs/storefronts/themes/architecture/sections) are Liquid files that allow you to create reusable modules of content that can be customized by merchants. They can also include blocks which allow merchants to add, remove, and reorder content within a section.
+**Text.** Everything a shopper reads goes through `{{ 'key' | t }}` and lives in
+`locales/en.default.json`. Editor-facing labels live in
+`locales/en.default.schema.json` and are referenced as `t:labels.foo`. Sentence
+case throughout.
 
-Sections are made customizable by including a `{% schema %}` in the body. For more information, refer to the [section schema documentation](https://shopify.dev/docs/storefronts/themes/architecture/sections/section-schema).
+**Documentation.** Snippets and statically rendered blocks open with a
+`{% doc %}` header describing their parameters.
 
-### Blocks
+## App blocks
 
-[Blocks](https://shopify.dev/docs/storefronts/themes/architecture/blocks) let developers create flexible layouts by breaking down sections into smaller, reusable pieces of Liquid. Each block has its own set of settings, and can be added, removed, and reordered within a section.
+Apps can be placed on the product, cart, collection and page templates, in the
+custom section, and inside the group block. Everywhere else the layout is fixed
+on purpose.
 
-Blocks are made customizable by including a `{% schema %}` in the body. For more information, refer to the [block schema documentation](https://shopify.dev/docs/storefronts/themes/architecture/blocks/theme-blocks/schema).
+The cart's app blocks sit outside the region its script re-renders, so a widget
+mounted there isn't torn down every time a quantity changes.
 
-## Schemas
+## Cookie consent
 
-When developing components defined by schema settings, we recommend these guidelines to simplify your code:
-
-- **Single property settings**: For settings that correspond to a single CSS property, use CSS variables:
-
-  ```liquid
-  <div class="collection" style="--gap: {{ block.settings.gap }}px">
-    ...
-  </div>
-
-  {% stylesheet %}
-    .collection {
-      gap: var(--gap);
-    }
-  {% endstylesheet %}
-
-  {% schema %}
-  {
-    "settings": [{
-      "type": "range",
-      "label": "gap",
-      "id": "gap",
-      "min": 0,
-      "max": 100,
-      "unit": "px",
-      "default": 0,
-    }]
-  }
-  {% endschema %}
-  ```
-
-- **Multiple property settings**: For settings that control multiple CSS properties, use CSS classes:
-
-  ```liquid
-  <div class="collection {{ block.settings.layout }}">
-    ...
-  </div>
-
-  {% stylesheet %}
-    .collection--full-width {
-      /* multiple styles */
-    }
-    .collection--narrow {
-      /* multiple styles */
-    }
-  {% endstylesheet %}
-
-  {% schema %}
-  {
-    "settings": [{
-      "type": "select",
-      "id": "layout",
-      "label": "layout",
-      "values": [
-        { "value": "collection--full-width", "label": "t:options.full" },
-        { "value": "collection--narrow", "label": "t:options.narrow" }
-      ]
-    }]
-  }
-  {% endschema %}
-  ```
-
-## CSS & JavaScript
-
-For CSS and JavaScript, we recommend using the [`{% stylesheet %}`](https://shopify.dev/docs/api/liquid/tags#stylesheet) and [`{% javascript %}`](https://shopify.dev/docs/api/liquid/tags/javascript) tags. They can be included multiple times, but the code will only appear once.
-
-### `critical.css`
-
-The Skeleton Theme explicitly separates essential CSS necessary for every page into a dedicated `critical.css` file.
-
-## Contributing
-
-We're excited for your contributions to the Skeleton Theme! This repository aims to remain as lean, lightweight, and fundamental as possible, and we kindly ask your contributions to align with this intention.
-
-Visit our [CONTRIBUTING.md](./CONTRIBUTING.md) for a detailed overview of our process, guidelines, and recommendations.
+`sections/cookie-banner.liquid` runs on Shopify's Customer Privacy API. It shows
+itself only where consent is required *and* the store's settings ask for it —
+those live under **Settings → Customer privacy** in the admin, and Shopify's own
+cookie banner has to be turned off there, or the store shows two.
 
 ## License
 
-Skeleton Theme is open-sourced under the [MIT](./LICENSE.md) License.
+See [LICENSE.md](./LICENSE.md).

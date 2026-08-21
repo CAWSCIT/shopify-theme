@@ -15,6 +15,26 @@
   elsif request.page_type == 'password'
     assign og_url = request.origin
   endif
+
+  # Products, collections and articles bring their own image. Everything else —
+  # the home page above all — falls back to the one set under Theme settings,
+  # without which a shared link unfurls as a bare rectangle of text.
+  assign share_image = page_image | default: settings.social_image
+
+  # Capped rather than served at source size: the original can be several
+  # thousand pixels wide, and every unfurl would fetch all of it. The height is
+  # worked out from the same ratio so the declared dimensions still match the
+  # file being pointed at — multiplying before dividing keeps integer maths from
+  # rounding the ratio away.
+  if share_image != blank
+    assign share_width = 1200
+    if share_image.width < share_width
+      assign share_width = share_image.width
+    endif
+
+    assign share_height = share_width | times: share_image.height | divided_by: share_image.width
+    assign share_url = share_image | image_url: width: share_width | prepend: 'https:'
+  endif
 %}
 
 <meta
@@ -38,30 +58,30 @@
   content="{{ og_description | escape }}"
 >
 
-{%- if page_image -%}
+{%- if share_image != blank -%}
   <meta
     property="og:image"
-    content="http:{{ page_image | image_url }}"
+    content="{{ share_url }}"
   >
   <meta
     property="og:image:secure_url"
-    content="https:{{ page_image | image_url }}"
+    content="{{ share_url }}"
   >
   <meta
     property="og:image:width"
-    content="{{ page_image.width }}"
+    content="{{ share_width }}"
   >
   <meta
     property="og:image:height"
-    content="{{ page_image.height }}"
+    content="{{ share_height }}"
+  >
+  <meta
+    property="og:image:alt"
+    content="{{ og_title | escape }}"
   >
 {%- endif -%}
 
 {%- if request.page_type == 'product' -%}
-  <script type="application/ld+json">
-    {{ product | structured_data }}
-  </script>
-
   <meta
     property="og:price:amount"
     content="{{ product.price | money_without_currency | strip_html }}"
@@ -103,3 +123,5 @@
     content="{{ page_description | escape }}"
   >
 {% endif %}
+
+{% render 'structured-data' %}

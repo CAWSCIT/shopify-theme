@@ -159,6 +159,12 @@
         </nav>
       {%- endif -%}
     {%- endpaginate -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <div class="collection__blocks mt-10">
+        {% content_for 'blocks' %}
+      </div>
+    {%- endif -%}
   </div>
 </section>
 
@@ -274,6 +280,7 @@
 {% schema %}
 {
   "name": "t:general.collection",
+  "blocks": [{ "type": "@app" }],
   "settings": [
     {
       "type": "checkbox",

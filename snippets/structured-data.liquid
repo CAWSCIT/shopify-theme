@@ -1,0 +1,173 @@
+{% doc %}
+  Renders the page's JSON-LD, for the search engines and link unfurlers that
+  read it. Nothing here is visible.
+
+  Every page carries the store's identity — an Organization and a WebSite whose
+  SearchAction is what a sitelinks search box is built from. On top of that,
+  each page type adds what it has: a Product, an Article, and the breadcrumb
+  trail the page displays.
+
+  Product and article markup comes from the `structured_data` filter, which is
+  the only place Shopify will keep prices, availability and review counts in
+  step with the admin. The breadcrumbs are built here because there's no filter
+  for them.
+
+  Strings go through `json` rather than `escape`: this is JSON, so a quote or a
+  newline in a product title has to be escaped as JSON rather than as HTML.
+
+  @example
+  {% render 'structured-data' %}
+{% enddoc %}
+
+{%- liquid
+  # Absolute URLs throughout — a relative one is ambiguous to a crawler that
+  # reaches this markup from a feed rather than from the page.
+  assign base_url = shop.url
+
+  # Shopify only sets `collection` on /collections/x/products/y URLs, so the
+  # middle of a product's trail falls back the same way the visible breadcrumb
+  # in `sections/product.liquid` does.
+  assign breadcrumb_collection = collection
+  if breadcrumb_collection == blank
+    assign breadcrumb_collection = product.collections.first
+  endif
+
+-%}
+
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": {{ shop.name | json }},
+    "url": {{ base_url | json }}
+    {%- if settings.social_image != blank -%}
+      ,"logo": {{ settings.social_image | image_url: width: 512 | prepend: 'https:' | json }}
+    {%- endif -%}
+  }
+</script>
+
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": {{ shop.name | json }},
+    "url": {{ base_url | json }},
+    "potentialAction": {
+      "@type": "SearchAction",
+      {% # The search_term_string placeholder has to reach the output with its
+         # braces intact, so it's written as plain template text: Liquid looks
+         # only for its own two opening delimiters, and a lone brace is neither.
+         #
+         # It can't go inside an output tag. Liquid ends one at the first
+         # closing brace it meets, string quoting or not, so a brace there
+         # truncates the tag and takes the rest of the line with it.
+         # Interpolating the two halves of the URL around the placeholder keeps
+         # every brace outside the tags.
+         #
+         # Not passed through the json filter for the same reason. Neither half
+         # can carry a character that would need escaping — both are URLs. %}
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "{{ base_url }}{{ routes.search_url }}?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+</script>
+
+{%- case request.page_type -%}
+  {%- when 'product' -%}
+    <script type="application/ld+json">
+      {{ product | structured_data }}
+    </script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": {{ 'general.breadcrumb.home' | t | json }},
+            "item": {{ base_url | json }}
+          }
+          {%- if breadcrumb_collection != blank -%}
+            ,{
+              "@type": "ListItem",
+              "position": 2,
+              "name": {{ breadcrumb_collection.title | json }},
+              "item": {{ base_url | append: breadcrumb_collection.url | json }}
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": {{ product.title | json }},
+              "item": {{ base_url | append: product.url | json }}
+            }
+          {%- else -%}
+            ,{
+              "@type": "ListItem",
+              "position": 2,
+              "name": {{ product.title | json }},
+              "item": {{ base_url | append: product.url | json }}
+            }
+          {%- endif -%}
+        ]
+      }
+    </script>
+
+  {%- when 'collection' -%}
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": {{ 'general.breadcrumb.home' | t | json }},
+            "item": {{ base_url | json }}
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": {{ collection.title | json }},
+            "item": {{ base_url | append: collection.url | json }}
+          }
+        ]
+      }
+    </script>
+
+  {%- when 'article' -%}
+    <script type="application/ld+json">
+      {{ article | structured_data }}
+    </script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": {{ 'general.breadcrumb.home' | t | json }},
+            "item": {{ base_url | json }}
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": {{ blog.title | json }},
+            "item": {{ base_url | append: blog.url | json }}
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": {{ article.title | json }},
+            "item": {{ base_url | append: article.url | json }}
+          }
+        ]
+      }
+    </script>
+{%- endcase -%}

@@ -31,6 +31,12 @@
     {%- if page.content != blank -%}
       {% render 'rich-text', content: page.content, classes: 'page__content' %}
     {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <div class="page__blocks">
+        {% content_for 'blocks' %}
+      </div>
+    {%- endif -%}
   </div>
 </section>
 
@@ -38,11 +44,18 @@
   .page__title + .page__content {
     margin-top: 2rem;
   }
+
+  /* Same gap as the one under the title, so an app block reads as another
+     part of the page rather than something appended to it. */
+  .page__blocks {
+    margin-top: 2rem;
+  }
 {% endstylesheet %}
 
 {% schema %}
 {
   "name": "t:general.page",
+  "blocks": [{ "type": "@app" }],
   "settings": [
     {
       "type": "checkbox",

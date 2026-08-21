@@ -53,6 +53,7 @@
     "section": "Section",
     "settings": "Settings",
     "sidebar": "Sidebar",
+    "social": "Social sharing",
     "text": "Text",
     "theme": "Theme",
     "typography": "Typography",
@@ -119,6 +120,7 @@
     "show_heading": "Show heading",
     "show_image": "Show image",
     "show_meta": "Show date and author",
+    "show_note": "Show order note",
     "show_option_range": "Show the range beside the option",
     "show_piece_count": "Show the piece count",
     "show_price": "Show price",
@@ -141,6 +143,7 @@
     "nav_background_color": "Catalog bar background",
     "padding": "Padding",
     "show_search": "Show search",
+    "social_image": "Social share image",
     "subheading": "Subheading",
     "subtitle": "Subtitle",
     "title": "Title",
@@ -161,6 +164,7 @@
   "info": {
     "after_add": "Staying put suits ordering several things in a row — the cart count in the header confirms each add.",
     "cart_media_size": "The size of the thumbnail beside each line.",
+    "cart_note": "A free-text box under the lines, carried through to the order. It saves as soon as the box is left, and again on the way to checkout.",
     "alert_message": "Links are underlined, and the underline drops away on hover.",
     "badge_optional": "The short label in the pill. Leave blank to hide it.",
     "brand_name_fallback": "Leave blank to use the store name from Settings → Store details.",
@@ -215,6 +219,7 @@
     "menu_optional": "Top-level links show beside the logo on desktop. On smaller screens the whole menu moves into the drawer. Leave blank to hide it.",
     "primary_font_weights": "The theme loads weights 300, 400, 500, 600 and 700. Any of those a font doesn't ship is synthesised by the browser.",
     "logo_fallback": "Leave blank to use the logo bundled with the theme.",
+    "social_image": "Shown when a link to the store is shared on social media or in a chat, on every page that has no image of its own. Products, collections and articles use their own. 1200 × 630 is the shape most services crop to.",
     "footer_menu": "Each top-level menu item becomes a column heading, and its nested items become the links below it."
   },
   "options": {

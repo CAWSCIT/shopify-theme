@@ -1,9 +1,9 @@
 [
   {
     "name": "theme_info",
-    "theme_name": "Skeleton",
+    "theme_name": "CAWSO",
     "theme_version": "0.1.0",
-    "theme_author": "Shopify",
+    "theme_author": "Kalob Taulien",
     "theme_documentation_url": "https://help.shopify.com/manual/online-store/themes",
     "theme_support_url": "https://support.shopify.com/"
   },
@@ -51,6 +51,17 @@
         "unit": "px",
         "label": "t:labels.page_margin",
         "default": 20
+      }
+    ]
+  },
+  {
+    "name": "t:general.social",
+    "settings": [
+      {
+        "type": "image_picker",
+        "id": "social_image",
+        "label": "t:labels.social_image",
+        "info": "t:info.social_image"
       }
     ]
   },

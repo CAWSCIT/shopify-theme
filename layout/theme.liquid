@@ -33,11 +33,21 @@
   </head>
 
   <body>
+    {% # First thing in the tab order on every page, so a keyboard or screen
+       # reader shopper can get past the logo, the catalog row, search, account
+       # and cart in one press. Off screen until it takes focus. %}
+    <a class="skip-to-content" href="#main-content">
+      {{- 'general.accessibility.skip_to_content' | t -}}
+    </a>
+
     {% sections 'header-group' %}
 
     {% # The template's sections live in a landmark of their own, which is also
-       # what `critical.css` grows to keep a short page's footer at the bottom. %}
-    <main>
+       # what `critical.css` grows to keep a short page's footer at the bottom.
+       #
+       # `tabindex="-1"` is what makes the skip link actually move focus rather
+       # than only scroll: a landmark isn't focusable on its own. %}
+    <main id="main-content" tabindex="-1">
       {{ content_for_layout }}
     </main>
 

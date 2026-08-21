@@ -95,6 +95,40 @@
 }
 
 /**
+ * Skip link.
+ *
+ * Kept in the tab order and moved off the top edge rather than hidden, since
+ * `display: none` and `visibility: hidden` both take it out of the tab order —
+ * which is the one thing it exists to be in.
+ *
+ * `fixed` rather than `absolute`: focus can reach it from the browser chrome
+ * partway down a long page, and an absolutely positioned link would be sitting
+ * at the top of the document where nobody is looking.
+ */
+.skip-to-content {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  left: 0;
+  padding: 0.75rem 1.25rem;
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transform: translateY(-100%);
+}
+
+.skip-to-content:focus {
+  transform: none;
+}
+
+/* The landmark is only focusable so the skip link can target it — it should
+   never draw a ring of its own when it receives that focus. */
+main:focus {
+  outline: none;
+}
+
+/**
  * Sticky footer.
  *
  * `body` is a column at least as tall as the viewport, so a page with little on

@@ -34,6 +34,8 @@
     "heading": "Your cart",
     "increase_quantity_label": "Increase quantity for {{ title }}",
     "line_total_label": "Line total",
+    "note": "Order note",
+    "note_hint": "Anything we should know — which group this is for, or when you need it by.",
     "remove": "Remove",
     "remove_label": "Remove {{ title }}",
     "shipping": "Shipping",
@@ -184,7 +186,8 @@
   "general": {
     "accessibility": {
       "alert": "Store alert",
-      "open_menu": "Open menu"
+      "open_menu": "Open menu",
+      "skip_to_content": "Skip to content"
     },
     "breadcrumb": {
       "home": "Home",

@@ -23,6 +23,7 @@
   data-cart-section
   data-section-id="{{ section.id }}"
   data-change-url="{{ routes.cart_change_url }}"
+  data-update-url="{{ routes.cart_update_url }}"
   data-error-message="{{ 'cart.update_error' | t | escape }}"
   data-updated-label="{{ 'cart.updated_html' | t: total: '[[total]]' | escape }}"
   style="
@@ -249,6 +250,24 @@
 
             <button type="submit" name="update" class="cart__update">{{ 'cart.update' | t }}</button>
           </noscript>
+
+          {%- if section.settings.show_note -%}
+            {% # Posts as `note` with the form, so it reaches the order on the
+               # way to checkout with the script absent. With the script, it's
+               # saved on its own as soon as the field is left. %}
+            <div class="cart__note">
+              <label class="cart__note-label" for="{{ section.id }}-note">{{ 'cart.note' | t }}</label>
+              <p class="cart__note-hint" id="{{ section.id }}-note-hint">{{ 'cart.note_hint' | t }}</p>
+              <textarea
+                class="cart__note-field"
+                id="{{ section.id }}-note"
+                name="note"
+                rows="3"
+                aria-describedby="{{ section.id }}-note-hint"
+                data-cart-note
+              >{{ cart.note }}</textarea>
+            </div>
+          {%- endif -%}
         </div>
 
         <aside class="cart__summary" aria-labelledby="{{ section.id }}-summary">
@@ -291,6 +310,16 @@
       </div>
     {%- endif -%}
   </div>
+
+  {% # Deliberately outside `[data-cart-root]`: that block is replaced wholesale
+     # every time a quantity changes, and an app that mounted a widget inside it
+     # would be torn down with it. Out here the markup is written once and left
+     # alone for the life of the page. %}
+  {%- if section.blocks.size > 0 -%}
+    <div class="cart__blocks mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] pb-8 lg:pb-12">
+      {% content_for 'blocks' %}
+    </div>
+  {%- endif -%}
 </section>
 
 {% stylesheet %}
@@ -503,6 +532,52 @@
    * The transition delay is the point: an update that lands inside it never
    * dims, so the summary only fades when a request is actually taking a moment.
    */
+  /*
+   * Set off from the lines above it by a rule rather than a panel: it's the
+   * last thing in the column, and a boxed field there reads as a second summary
+   * competing with the real one beside it.
+   */
+  .cart__note {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--cart-border);
+  }
+
+  .cart__note-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .cart__note-hint {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    opacity: 0.65;
+  }
+
+  .cart__note-field {
+    display: block;
+    width: 100%;
+    margin-top: 0.625rem;
+    padding: 0.75rem 0.875rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: inherit;
+    background-color: var(--cart-panel-bg);
+    border: 1px solid var(--cart-input-border);
+    /* Vertical only: a textarea widened past its column drags the grid with it. */
+    resize: vertical;
+  }
+
+  .cart__note-field:focus-visible {
+    outline: 2px solid var(--cart-accent);
+    outline-offset: 1px;
+  }
+
   .cart__summary {
     padding: 1.5rem;
     background-color: var(--cart-panel-bg, #ffffff);
@@ -633,6 +708,18 @@
       const active = document.activeElement;
       if (!active || !section.contains(active)) return null;
 
+      // The note is free text, so what's in it has to travel with the focus.
+      // A quantity change queued before the shopper started typing would
+      // otherwise land mid-sentence and replace the field with the cart's copy.
+      if (active.hasAttribute('data-cart-note')) {
+        return {
+          note: true,
+          value: active.value,
+          start: active.selectionStart,
+          end: active.selectionEnd,
+        };
+      }
+
       const line = active.closest('[data-line-key]');
       if (!line) return null;
 
@@ -650,6 +737,16 @@
 
     function restoreFocus(section, descriptor) {
       if (!descriptor) return;
+
+      if (descriptor.note) {
+        const note = section.querySelector('[data-cart-note]');
+        if (!note) return;
+
+        note.value = descriptor.value;
+        note.focus();
+        note.setSelectionRange(descriptor.start, descriptor.end);
+        return;
+      }
 
       const line = section.querySelector(`[data-line-key="${descriptor.key}"]`);
       const target = line && line.querySelector(descriptor.selector);
@@ -758,6 +855,31 @@
       }
     }
 
+    // The note rides on /cart/update rather than /cart/change, which only takes
+    // a line and a quantity. No re-render follows: nothing else on the page is
+    // derived from the note, and replacing the markup under a shopper who just
+    // finished typing would be the one visible thing it did.
+    async function saveNote(section, note) {
+      section.setAttribute('data-busy', '');
+
+      try {
+        const response = await fetch(`${section.dataset.updateUrl}.js`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({ note }),
+        });
+
+        if (!response.ok) showError(section, null, section.dataset.errorMessage);
+      } catch (error) {
+        showError(section, null, section.dataset.errorMessage);
+      } finally {
+        section.removeAttribute('data-busy');
+      }
+    }
+
     function schedule(section, key, quantity) {
       window.clearTimeout(timers.get(key));
 
@@ -819,10 +941,25 @@
     });
 
     // Typed quantities, including the 0 that empties a line — deliberate in a
-    // way that clicking `−` one time too many isn't.
+    // way that clicking `−` one time too many isn't. The note comes through
+    // here too: `change` on a textarea fires when it's left, which is exactly
+    // when there's something worth saving.
     document.addEventListener('change', (event) => {
       const field = event.target;
-      if (!field.matches || !field.matches('[data-quantity-input]')) return;
+      if (!field.matches) return;
+
+      if (field.matches('[data-cart-note]')) {
+        const noteSection = field.closest('[data-cart-section]');
+        if (!noteSection) return;
+
+        // On the same queue as the quantity writes. Clicking a stepper blurs
+        // the note first, so the note is already queued ahead of the change
+        // whose reply re-renders the field.
+        queue = queue.then(() => saveNote(noteSection, field.value));
+        return;
+      }
+
+      if (!field.matches('[data-quantity-input]')) return;
 
       const section = field.closest('[data-cart-section]');
       const line = field.closest('[data-line-key]');
@@ -839,6 +976,7 @@
 {% schema %}
 {
   "name": "t:general.cart",
+  "blocks": [{ "type": "@app" }],
   "settings": [
     {
       "type": "url",
@@ -858,6 +996,13 @@
       "id": "show_unit_price",
       "label": "t:labels.show_unit_price",
       "info": "t:info.show_unit_price",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_note",
+      "label": "t:labels.show_note",
+      "info": "t:info.cart_note",
       "default": true
     },
     {
