@@ -1,0 +1,107 @@
+{% doc %}
+  Renders one row of the search results.
+
+  A product renders as a product row, with its type and SKU on the line under
+  the title — the type because it's what the category sidebar filters by.
+
+  A search that wasn't scoped to products can also return articles and pages.
+  Those render as a plain titled link rather than being skipped, so the result
+  count above the list stays honest.
+
+  Colours and the thumbnail are read from the `--row-*` custom properties set on
+  the surrounding list — see `product-row` for the full set.
+
+  @param {object} result - A product, article, or page from `search.results`
+  @param {object} settings - The section's settings
+
+  @example
+  {% render 'search-result', result: result, settings: section.settings %}
+{% enddoc %}
+
+{%- liquid
+  # The thumbnail is a fixed square at every breakpoint, so `sizes` is just that
+  # square. Built up here because a filter argument can't itself be filtered.
+  assign media_sizes = settings.media_size | append: 'px'
+
+  # `back` returns the shopper to these results after adding. Searching is a
+  # browsing activity, so staying put is the default.
+  assign return_to = ''
+  if settings.after_add == 'stay'
+    assign return_to = 'back'
+  endif
+
+  # `subtitle_metafield` is written as `namespace.key` in one field to keep the
+  # settings panel short.
+  assign metafield_parts = settings.subtitle_metafield | split: '.'
+  assign metafield_namespace = metafield_parts[0]
+  assign metafield_key = metafield_parts[1]
+
+  assign subtitle = ''
+  case settings.subtitle_source
+    when 'metafield'
+      assign subtitle = result.metafields[metafield_namespace][metafield_key] | metafield_text
+    when 'product_type'
+      assign subtitle = result.type
+    when 'vendor'
+      assign subtitle = result.vendor
+    when 'variant_count'
+      # Only says something worth reading once there's a choice to make —
+      # "1 option" is noise on a single-variant product.
+      if result.variants.size > 1
+        assign subtitle = 'products.option_count' | t: count: result.variants.size
+      endif
+  endcase
+
+  assign detail = ''
+  if settings.show_type
+    assign detail = result.type
+  endif
+
+  if settings.show_sku
+    assign sku = result.selected_or_first_available_variant.sku
+    if sku != blank
+      if detail == blank
+        assign detail = sku
+      else
+        assign detail = detail | append: ' · ' | append: sku
+      endif
+    endif
+  endif
+-%}
+
+{%- if result.object_type == 'product' -%}
+  {% render 'product-row',
+    product: result,
+    subtitle: subtitle,
+    detail: detail,
+    show_sku: false,
+    variant_limit: settings.variant_limit,
+    sizes: media_sizes,
+    return_to: return_to
+  %}
+{%- else -%}
+  <a class="search-result__link" href="{{ result.url }}">
+    <span class="text-base leading-snug font-semibold">{{ result.title }}</span>
+    <span class="search-result__type text-sm leading-snug">{{ result.object_type }}</span>
+  </a>
+{%- endif -%}
+
+{% stylesheet %}
+  .search-result__link {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+    padding: 1rem 1.25rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .search-result__link:hover {
+    background-color: var(--row-hover, rgb(0 0 0 / 3%));
+  }
+
+  .search-result__type {
+    opacity: 0.7;
+  }
+{% endstylesheet %}

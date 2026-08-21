@@ -138,6 +138,7 @@
   "search": {
     "all_products": "All products",
     "category": "Category",
+    "empty_catalog": "There are no products in the catalog yet.",
     "empty_category": "Nothing in this category yet.",
     "header_placeholder": "Search the catalog",
     "no_results_html": "No results found for {{ terms }}",

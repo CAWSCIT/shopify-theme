@@ -46,23 +46,6 @@
   assign encoded_terms = terms | url_encode
   assign all_href = routes.search_url | append: '?q=' | append: encoded_terms | append: search_params
 
-  # `subtitle_metafield` is written as `namespace.key` in one field to keep the
-  # settings panel short.
-  assign metafield_parts = section.settings.subtitle_metafield | split: '.'
-  assign metafield_namespace = metafield_parts[0]
-  assign metafield_key = metafield_parts[1]
-
-  # The thumbnail is a fixed square at every breakpoint, so `sizes` is just that
-  # square. Built up here because a filter argument can't itself be filtered.
-  assign media_sizes = section.settings.media_size | append: 'px'
-
-  # `back` returns the shopper to these results after adding. Searching is a
-  # browsing activity, so staying put is the default.
-  assign return_to = ''
-  if section.settings.after_add == 'stay'
-    assign return_to = 'back'
-  endif
-
   # With nothing searched for, the page is the catalog rather than an empty
   # frame — "all products" is a starting point, not a no-op.
   assign showing_catalog = true
@@ -228,97 +211,60 @@
           </div>
         </form>
 
-        {%- liquid
-          assign results = search.results
-          if showing_catalog
-            assign results = collections.all.products
-          endif
-        -%}
-
-        {%- paginate results by section.settings.products_per_page -%}
-          {%- if results.size > 0 -%}
-            <ul role="list" class="search__list mt-4 list-none pl-0">
-              {%- for result in results -%}
-                {% # A search without `type=product` — an old bookmark, say —
-                   # can still return articles and pages. They're listed plainly
-                   # rather than skipped, so the count above stays honest. %}
-                {%- if result.object_type == 'product' -%}
-                  {%- liquid
-                    assign subtitle = ''
-                    case section.settings.subtitle_source
-                      when 'metafield'
-                        assign subtitle = result.metafields[metafield_namespace][metafield_key] | metafield_text
-                      when 'product_type'
-                        assign subtitle = result.type
-                      when 'vendor'
-                        assign subtitle = result.vendor
-                      when 'variant_count'
-                        # Only says something worth reading once there's a
-                        # choice to make — "1 option" is noise otherwise.
-                        if result.variants.size > 1
-                          assign subtitle = 'products.option_count' | t: count: result.variants.size
-                        endif
-                    endcase
-
-                    # The type earns its place on the search page in a way it
-                    # doesn't on a collection: it's what the sidebar filters by.
-                    assign detail = ''
-                    if section.settings.show_type
-                      assign detail = result.type
-                    endif
-
-                    if section.settings.show_sku
-                      assign sku = result.selected_or_first_available_variant.sku
-                      if sku != blank
-                        if detail == blank
-                          assign detail = sku
-                        else
-                          assign detail = detail | append: ' · ' | append: sku
-                        endif
-                      endif
-                    endif
-                  -%}
-
+        {% # `paginate` needs the paginateable object itself: assigning
+           # `search.results` to a variable first turns it into an ordinary
+           # array, which the tag refuses. So the two views are two blocks
+           # rather than one block over a swapped-in list. %}
+        {%- if showing_catalog -%}
+          {%- paginate collections.all.products by section.settings.products_per_page -%}
+            {%- if collections.all.products.size > 0 -%}
+              <ul role="list" class="search__list mt-4 list-none pl-0">
+                {%- for result in collections.all.products -%}
                   <li class="search__item">
-                    {% render 'product-row',
-                      product: result,
-                      subtitle: subtitle,
-                      detail: detail,
-                      show_sku: false,
-                      variant_limit: section.settings.variant_limit,
-                      sizes: media_sizes,
-                      return_to: return_to
-                    %}
+                    {% render 'search-result', result: result, settings: section.settings %}
                   </li>
+                {%- endfor -%}
+              </ul>
+            {%- else -%}
+              <p class="search__empty mt-6 text-base leading-snug">{{ 'search.empty_catalog' | t }}</p>
+            {%- endif -%}
+
+            {%- if paginate.pages > 1 -%}
+              <nav class="search__pagination mt-8" aria-label="{{ 'collections.pagination' | t }}">
+                {{ paginate | default_pagination }}
+              </nav>
+            {%- endif -%}
+          {%- endpaginate -%}
+        {%- else -%}
+          {%- paginate search.results by section.settings.products_per_page -%}
+            {%- if search.results.size > 0 -%}
+              <ul role="list" class="search__list mt-4 list-none pl-0">
+                {%- for result in search.results -%}
+                  <li class="search__item">
+                    {% render 'search-result', result: result, settings: section.settings %}
+                  </li>
+                {%- endfor -%}
+              </ul>
+            {%- else -%}
+              <p class="search__empty mt-6 text-base leading-snug">
+                {%- if terms != blank -%}
+                  {{- 'search.no_results_html' | t: terms: terms -}}
                 {%- else -%}
-                  <li class="search__item">
-                    <a class="search__other" href="{{ result.url }}">
-                      <span class="text-base leading-snug font-semibold">{{ result.title }}</span>
-                      <span class="search__other-type text-sm leading-snug">{{ result.object_type }}</span>
-                    </a>
-                  </li>
+                  {{- 'search.empty_category' | t -}}
                 {%- endif -%}
-              {%- endfor -%}
-            </ul>
-          {%- else -%}
-            <p class="search__empty mt-6 text-base leading-snug">
-              {%- if terms != blank -%}
-                {{- 'search.no_results_html' | t: terms: terms -}}
-              {%- else -%}
-                {{- 'search.empty_category' | t -}}
-              {%- endif -%}
 
-              {{ ' ' }}
-              <a class="search__empty-link" href="{{ all_href }}">{{ 'search.show_all' | t }}</a>
-            </p>
-          {%- endif -%}
+                {{ ' ' }}
+                <a class="search__empty-link" href="{{ all_href }}">{{ 'search.show_all' | t }}</a>
+              </p>
+            {%- endif -%}
 
-          {%- if paginate.pages > 1 -%}
-            <nav class="search__pagination mt-8" aria-label="{{ 'collections.pagination' | t }}">
-              {{ paginate | default_pagination }}
-            </nav>
-          {%- endif -%}
-        {%- endpaginate -%}
+            {%- if paginate.pages > 1 -%}
+              <nav class="search__pagination mt-8" aria-label="{{ 'collections.pagination' | t }}">
+                {{ paginate | default_pagination }}
+              </nav>
+            {%- endif -%}
+          {%- endpaginate -%}
+        {%- endif -%}
       </div>
     </div>
   </div>
@@ -326,8 +272,7 @@
 
 {% stylesheet %}
   .search__count,
-  .search__empty,
-  .search__other-type {
+  .search__empty {
     opacity: 0.7;
   }
 
@@ -531,20 +476,6 @@
 
   .search__item {
     border-bottom: 1px solid var(--row-border, rgb(0 0 0 / 12%));
-  }
-
-  .search__other {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.25rem 0.75rem;
-    padding: 1rem 1.25rem;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .search__other:hover {
-    background-color: var(--row-hover, rgb(0 0 0 / 3%));
   }
 
   .search__empty-link {
