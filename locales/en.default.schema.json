@@ -43,11 +43,14 @@
     "sidebar": "Sidebar",
     "text": "Text",
     "theme": "Theme",
-    "typography": "Typography"
+    "typography": "Typography",
+    "variants": "Variants"
   },
   "labels": {
     "accent_color": "Accent color",
+    "accent_text_color": "Accent text color",
     "address": "Address",
+    "after_add": "After adding to cart",
     "alignment": "Alignment",
     "background": "Background",
     "background_color": "Background color",
@@ -67,6 +70,7 @@
     "eyebrow": "Eyebrow",
     "eyebrow_color": "Eyebrow color",
     "featured_products": "Pinned products",
+    "filter_menu": "Category menu",
     "foreground": "Foreground",
     "grid_gap": "Grid spacing",
     "heading": "Heading",
@@ -82,10 +86,15 @@
     "media_background_color": "Image background",
     "media_fit": "Image fit",
     "media_size": "Image size",
+    "products_per_page": "Products per page",
     "products_to_show": "Products to show",
+    "row_background_color": "Row background",
+    "show_breadcrumb": "Show breadcrumb",
+    "show_count": "Show product count",
     "show_description": "Show description",
     "show_heading": "Show heading",
     "show_price": "Show price",
+    "show_sku": "Show SKU",
     "show_view_all": "Show link to collection",
     "subtitle_metafield": "Subtitle metafield",
     "subtitle_source": "Subtitle",
@@ -109,9 +118,11 @@
     "show_payment_icons": "Show payment icons",
     "text_color": "Text color",
     "text_style": "Text style",
-    "text": "Text"
+    "text": "Text",
+    "variant_limit": "Variants to list"
   },
   "info": {
+    "after_add": "Staying put suits ordering several things in a row — the cart count in the header confirms each add.",
     "alert_message": "Links are underlined, and the underline drops away on hover.",
     "badge_optional": "The short label in the pill. Leave blank to hide it.",
     "brand_name_fallback": "Leave blank to use the store name from Settings → Store details.",
@@ -123,7 +134,12 @@
     "collection_price": "Worked out from the products in the collection — a single figure when they all cost the same, otherwise the cheapest, shown as a starting price.",
     "card_link": "Points anywhere — a product, collection, page, or an address off the store. Leave blank for a card that isn't clickable.",
     "card_subtitle": "The small line under the card title, for example a price or a short description.",
+    "filter_menu": "Shown as pills above the list, with the collection you're on highlighted. Leave blank to hide them.",
     "media_fit": "Fill crops the image to the shape above. Fit shows all of it, with the image background around the edges.",
+    "products_per_page": "How many products before the list pages. Products with variants add a row each when opened, so a lower number keeps the page light.",
+    "row_subtitle_source": "The short line beside the product title, for example \"9 languages\" or \"Daily meditations\".",
+    "show_sku": "Taken from the first available variant, and from each variant in the expanded list.",
+    "variant_limit": "How many variants a row lists when it's opened. Anything past this links out to the product page. Shopify caps this at 50 whatever you pick.",
     "section_background_color": "Sits behind the panel, edge to edge. Match it to the section above to make the two read as one.",
     "subheading": "The line under the heading. Leave blank to hide it.",
     "featured_collection": "Fills any slots the pinned products below don't use, and is where the link points.",
@@ -138,6 +154,10 @@
     "footer_menu": "Each top-level menu item becomes a column heading, and its nested items become the links below it."
   },
   "options": {
+    "after_add": {
+      "stay": "Stay on this page",
+      "cart": "Go to the cart"
+    },
     "count_label": {
       "products": "6 products",
       "titles": "6 titles",
@@ -161,6 +181,7 @@
     "subtitle_source": {
       "metafield": "Product metafield",
       "product_type": "Product type",
+      "variant_count": "Number of variants",
       "vendor": "Vendor",
       "none": "Hide the subtitle"
     },

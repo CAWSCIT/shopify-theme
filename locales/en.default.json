@@ -33,12 +33,20 @@
     }
   },
   "collections": {
-    "title": "Collections"
+    "title": "Collections",
+    "empty": "There's nothing in this collection yet.",
+    "filters": "Filter by category",
+    "list_view": "list view",
+    "pagination": "Pagination"
   },
   "general": {
     "accessibility": {
       "alert": "Store alert",
       "open_menu": "Open menu"
+    },
+    "breadcrumb": {
+      "home": "Home",
+      "label": "Breadcrumb"
     },
     "country_region": "Country/region",
     "footer_navigation": "Footer navigation",
@@ -68,7 +76,20 @@
     "use_at_checkout": "Use this gift card at checkout"
   },
   "products": {
+    "add": "Add",
+    "add_error": "That couldn't be added to the cart. Please try again.",
+    "add_to_cart_label": "Add {{ title }} to cart",
+    "added": "Added to cart",
+    "choose": "Choose",
+    "quantity_label": "Quantity for {{ title }}",
+    "sold_out": "Sold out",
     "view_all": "View all",
+    "view_all_options": "See all {{ count }} options",
+    "view_details": "View full details",
+    "option_count": {
+      "one": "{{ count }} option",
+      "other": "{{ count }} options"
+    },
     "price": {
       "each_price_html": "{{ price }} each",
       "from_price_html": "From {{ price }}",

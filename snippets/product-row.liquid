@@ -1,0 +1,701 @@
+{% doc %}
+  Renders one row of a product list — thumbnail, title, SKU, a short descriptor,
+  the price, and an add-to-cart control.
+
+  A product with more than one variant renders as a `<details>`: the whole row
+  is the toggle, and opening it lists every variant with its own SKU, price and
+  add button. A single-variant product renders as a plain row whose button adds
+  straight to the cart, so the common case stays one click. Using `<details>`
+  rather than a script means the variants expand with JavaScript off, and the
+  keyboard and screen reader behaviour comes for free.
+
+  Each add button is paired with a quantity field. The form is a plain POST to
+  /cart/add and works on its own, but the script below intercepts it to add in
+  the background and update every `[data-cart-count]` on the page — the header's
+  cart link carries one, which is how the shopper sees the add land.
+
+  Colours and the thumbnail are read from custom properties so a parent can
+  theme a whole list at once by setting them on the container: `--row-hover`,
+  `--row-border`, `--row-input-border`, `--row-media-bg`, `--row-media-size`,
+  `--row-media-fit`, `--row-accent`, `--row-accent-text`, `--row-error`. Every
+  one has a fallback, so the row also stands on its own.
+
+  @param {product} product - The product to render
+  @param {string} [subtitle] - A short descriptor shown beside the title
+  @param {boolean} [show_sku] - Show the SKU under the title, defaults to true
+  @param {number} [variant_limit] - How many variants to list, capped at 50 by Liquid
+  @param {string} [sizes] - The `sizes` attribute for the thumbnail
+  @param {string} [return_to] - Where the add-to-cart form lands. `back` returns
+    to this page; blank sends the shopper to the cart.
+
+  @example
+  {% render 'product-row', product: product %}
+  {% render 'product-row',
+    product: product,
+    subtitle: product.metafields.custom.subtitle,
+    variant_limit: 20,
+    sizes: '72px',
+    return_to: 'back'
+  %}
+{% enddoc %}
+
+{%- liquid
+  assign row_sizes = sizes | default: '72px'
+
+  if show_sku == nil
+    assign show_sku = true
+  endif
+
+  # One variant means there's nothing to choose between, so the row adds it
+  # directly instead of expanding. Shopify gives every product at least one
+  # variant, so this is the difference between "Add" and "Choose".
+  assign variant_count = product.variants.size
+  assign has_variants = false
+  if variant_count > 1
+    assign has_variants = true
+  endif
+
+  # A `for` loop stops at 50 iterations whatever limit it's given, so the cap is
+  # real rather than advisory — anything past it needs the product page.
+  assign variants_shown = variant_limit | default: 50
+  if variants_shown > 50
+    assign variants_shown = 50
+  endif
+
+  assign first_variant = product.selected_or_first_available_variant
+  assign sku = first_variant.sku
+
+  # `price_varies` is true only when the cheapest and dearest variants differ,
+  # which is the one case where a single figure would misrepresent the product.
+  assign price = product.price | money
+  if product.price_varies
+    assign price = 'products.price.from_price_html' | t: price: price
+  endif
+
+  # `compare_at_price` is left set after a sale ends, so it only means "on sale"
+  # while it's still above the current price.
+  assign on_sale = false
+  if product.compare_at_price > product.price
+    assign on_sale = true
+  endif
+
+  # An expandable row is itself the click target, so the title can't also be a
+  # link — nesting one inside the `<summary>` would give the row two competing
+  # actions. Those rows reach the product page from the expanded panel instead.
+  assign title_url = ''
+  unless has_variants
+    assign title_url = product.url
+  endunless
+-%}
+
+{%- capture row_body -%}
+  <div class="product-row__main">
+    <div class="product-row__media">
+      {%- if product.featured_image != blank -%}
+        {{
+          product.featured_image
+          | image_url: width: 240
+          | image_tag:
+            widths: '72, 96, 144, 192, 240',
+            sizes: row_sizes,
+            loading: 'lazy',
+            class: 'product-row__image'
+        }}
+      {%- else -%}
+        {{ 'product-1' | placeholder_svg_tag: 'product-row__image' }}
+      {%- endif -%}
+    </div>
+
+    <div class="product-row__title">
+      <span class="text-base leading-snug font-semibold">
+        {%- if title_url != blank -%}
+          <a class="product-row__link" href="{{ title_url }}">{{ product.title }}</a>
+        {%- else -%}
+          {{ product.title }}
+        {%- endif -%}
+      </span>
+
+      {%- if show_sku -%}
+        {%- if sku != blank -%}
+          <span class="product-row__sku text-sm leading-snug">{{ sku }}</span>
+        {%- endif -%}
+      {%- endif -%}
+    </div>
+
+    <div class="product-row__meta">
+      {%- if subtitle != blank -%}
+        <span class="text-sm leading-snug">{{ subtitle }}</span>
+      {%- endif -%}
+    </div>
+
+    <p class="product-row__price text-lg leading-snug font-light font-price">
+      {%- if on_sale -%}
+        <span class="sr-only">{{ 'products.price.sale_price' | t }}</span>
+      {%- endif -%}
+
+      <span>{{ price }}</span>
+
+      {%- if on_sale -%}
+        <s class="product-row__compare text-sm">
+          <span class="sr-only">{{ 'products.price.regular_price' | t }}</span>
+          {{- product.compare_at_price | money -}}
+        </s>
+      {%- endif -%}
+    </p>
+
+    <div class="product-row__action">
+      {%- if has_variants -%}
+        {% # Not a `<button>`: the surrounding `<summary>` is already the
+           # control, and a nested one would be unreachable by keyboard. %}
+        <span class="product-row__button" aria-hidden="true">{{ 'products.choose' | t }}</span>
+        <span class="sr-only">{{ 'products.option_count' | t: count: variant_count }}</span>
+      {%- elsif product.available -%}
+        <form
+          method="post"
+          action="{{ routes.cart_add_url }}"
+          accept-charset="UTF-8"
+          enctype="multipart/form-data"
+          class="product-row__form"
+          data-quantity-form
+          data-cart-url="{{ routes.cart_url }}"
+          data-added-message="{{ 'products.added' | t | escape }}"
+          data-error-message="{{ 'products.add_error' | t | escape }}"
+        >
+          <input type="hidden" name="form_type" value="product">
+          <input type="hidden" name="utf8" value="✓">
+          <input type="hidden" name="id" value="{{ first_variant.id }}">
+          {%- if return_to != blank -%}
+            <input type="hidden" name="return_to" value="{{ return_to }}">
+          {%- endif -%}
+
+          <input
+            type="number"
+            name="quantity"
+            class="product-row__quantity"
+            value="1"
+            min="1"
+            step="1"
+            inputmode="numeric"
+            aria-label="{{ 'products.quantity_label' | t: title: product.title | escape }}"
+          >
+
+          <button
+            type="submit"
+            class="product-row__button"
+            data-quantity-submit
+            aria-label="{{ 'products.add_to_cart_label' | t: title: product.title | escape }}"
+          >
+            {{- 'products.add' | t -}}
+          </button>
+        </form>
+      {%- else -%}
+        <span class="product-row__button product-row__button--disabled">{{ 'products.sold_out' | t }}</span>
+      {%- endif -%}
+    </div>
+
+    {% # Present but empty, rather than created on demand: a live region has to
+       # already be in the accessibility tree for a change to be announced.
+       # Expandable rows have no add form of their own, so they get none. %}
+    {%- unless has_variants -%}
+      <div class="product-row__status text-sm leading-snug" role="status" data-quantity-status></div>
+    {%- endunless -%}
+  </div>
+{%- endcapture -%}
+
+{%- if has_variants -%}
+  <details class="product-row product-row--expandable">
+    <summary class="product-row__summary">
+      {{ row_body }}
+    </summary>
+
+    <div class="product-row__panel">
+      <ul role="list" class="product-row__variants list-none pl-0">
+        {%- for variant in product.variants limit: variants_shown -%}
+          <li class="product-row__variant">
+            <div class="product-row__variant-title">
+              <span class="text-sm leading-snug font-medium">{{ variant.title }}</span>
+
+              {%- if show_sku -%}
+                {%- if variant.sku != blank -%}
+                  <span class="product-row__sku text-sm leading-snug">{{ variant.sku }}</span>
+                {%- endif -%}
+              {%- endif -%}
+            </div>
+
+            <p class="product-row__variant-price text-base leading-snug font-light font-price">
+              {{- variant.price | money -}}
+            </p>
+
+            <div class="product-row__variant-action">
+              {%- if variant.available -%}
+                {%- capture variant_label -%}
+                  {{- product.title }} — {{ variant.title -}}
+                {%- endcapture -%}
+
+                {% # Hand-written rather than Liquid's product form tag: that
+                   # tag names its form after the product, so the variants of
+                   # one product would all share a single DOM id. %}
+                <form
+                  method="post"
+                  action="{{ routes.cart_add_url }}"
+                  accept-charset="UTF-8"
+                  enctype="multipart/form-data"
+                  class="product-row__form"
+                  data-quantity-form
+                  data-cart-url="{{ routes.cart_url }}"
+                  data-added-message="{{ 'products.added' | t | escape }}"
+                  data-error-message="{{ 'products.add_error' | t | escape }}"
+                >
+                  <input type="hidden" name="form_type" value="product">
+                  <input type="hidden" name="utf8" value="✓">
+                  <input type="hidden" name="id" value="{{ variant.id }}">
+                  {%- if return_to != blank -%}
+                    <input type="hidden" name="return_to" value="{{ return_to }}">
+                  {%- endif -%}
+
+                  <input
+                    type="number"
+                    name="quantity"
+                    class="product-row__quantity"
+                    value="1"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    aria-label="{{ 'products.quantity_label' | t: title: variant_label | escape }}"
+                  >
+
+                  <button
+                    type="submit"
+                    class="product-row__button product-row__button--small"
+                    data-quantity-submit
+                    aria-label="{{ 'products.add_to_cart_label' | t: title: variant_label | escape }}"
+                  >
+                    {{- 'products.add' | t -}}
+                  </button>
+                </form>
+              {%- else -%}
+                <span class="product-row__button product-row__button--small product-row__button--disabled">
+                  {{- 'products.sold_out' | t -}}
+                </span>
+              {%- endif -%}
+            </div>
+
+            <div class="product-row__status text-sm leading-snug" role="status" data-quantity-status></div>
+          </li>
+        {%- endfor -%}
+      </ul>
+
+      <p class="product-row__panel-footer text-sm leading-snug">
+        {%- if variant_count > variants_shown -%}
+          <a class="product-row__link" href="{{ product.url }}">
+            {{- 'products.view_all_options' | t: count: variant_count -}}
+          </a>
+        {%- else -%}
+          <a class="product-row__link" href="{{ product.url }}">{{ 'products.view_details' | t }}</a>
+        {%- endif -%}
+      </p>
+    </div>
+  </details>
+{%- else -%}
+  <div class="product-row">
+    {{ row_body }}
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  /*
+   * Stacked beside the thumbnail on a phone, spread into columns from tablet
+   * up. The areas are named so the same markup serves both — only the track
+   * list and the placement change.
+   */
+  /*
+   * The `status` row is always in the template even when the message is empty,
+   * so the row-gap is kept at zero — an empty status then costs no height, and
+   * `.product-row__status:not(:empty)` supplies its own spacing when it fills.
+   */
+  .product-row__main {
+    display: grid;
+    align-items: center;
+    gap: 0.125rem 1rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'media title  action'
+      'media meta   action'
+      'media price  action'
+      'status status status';
+    padding: 0.875rem 1rem;
+  }
+
+  @media (min-width: 48rem) {
+    .product-row__main {
+      gap: 0 1.5rem;
+      grid-template-columns: auto minmax(0, 1fr) minmax(0, 10rem) minmax(0, 6.5rem) auto;
+      grid-template-areas:
+        'media title meta price action'
+        'status status status status status';
+      padding: 1rem 1.25rem;
+    }
+  }
+
+  .product-row__media {
+    grid-area: media;
+    flex: 0 0 auto;
+    width: var(--row-media-size, 72px);
+    height: var(--row-media-size, 72px);
+    background-color: var(--row-media-bg, rgb(0 0 0 / 4%));
+  }
+
+  /*
+   * Unlayered, so this beats the `height: auto` that `critical.css` sets on
+   * every image from `@layer reset`.
+   */
+  .product-row__image {
+    width: 100%;
+    height: 100%;
+    object-fit: var(--row-media-fit, contain);
+  }
+
+  .product-row__title {
+    grid-area: title;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .product-row__meta {
+    grid-area: meta;
+    min-width: 0;
+  }
+
+  .product-row__price {
+    grid-area: price;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.5rem;
+  }
+
+  .product-row__action {
+    grid-area: action;
+    justify-self: end;
+  }
+
+  /* Dimmed rather than a fixed grey, so it works on any row background. */
+  .product-row__sku,
+  .product-row__meta,
+  .product-row__compare {
+    opacity: 0.6;
+  }
+
+  .product-row__link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .product-row__link:hover,
+  .product-row__link:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /*
+   * `stretch` rather than a matching padding pair: number inputs and buttons
+   * size their content differently, so letting the shorter one grow to the line
+   * height is what actually keeps the two the same height.
+   */
+  .product-row__form {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .product-row__quantity {
+    width: 3.75rem;
+    padding: 0.5rem 0.375rem;
+    font-size: 0.875rem;
+    line-height: 1.25;
+    color: inherit;
+    text-align: center;
+    background-color: var(--row-bg, #ffffff);
+    border: 1px solid var(--row-input-border, rgb(0 0 0 / 30%));
+  }
+
+  .product-row__status {
+    grid-area: status;
+  }
+
+  /* Only pays for its spacing once it has something to say. */
+  .product-row__status:not(:empty) {
+    margin-top: 0.5rem;
+  }
+
+  .product-row__status[data-error] {
+    color: var(--row-error, #9b2c2c);
+  }
+
+  /*
+   * Outlined rather than filled: there is one of these on every row, and a
+   * column of solid blocks would pull the eye away from the products.
+   */
+  .product-row__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 5.5rem;
+    padding: 0.5rem 1rem;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--row-accent, #0d463d);
+    text-align: center;
+    white-space: nowrap;
+    cursor: pointer;
+    background-color: transparent;
+    border: 1px solid var(--row-accent, #0d463d);
+    border-radius: var(--style-border-radius-inputs, 2px);
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .product-row__button--small {
+    min-width: 4.5rem;
+    padding: 0.375rem 0.75rem;
+  }
+
+  .product-row__button--disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .product-row__summary:hover .product-row__button,
+  .product-row__button:hover,
+  .product-row__button:focus-visible {
+    color: var(--row-accent-text, #ffffff);
+    background-color: var(--row-accent, #0d463d);
+  }
+
+  .product-row__button--disabled,
+  .product-row__button--disabled:hover,
+  .product-row__summary:hover .product-row__button--disabled {
+    color: var(--row-accent, #0d463d);
+    background-color: transparent;
+  }
+
+  /* Only ever set by the script below, while an add is in flight. */
+  .product-row__button:disabled {
+    cursor: progress;
+    opacity: 0.55;
+  }
+
+  /*
+   * The whole summary is the toggle, so the default disclosure triangle would
+   * be a second, redundant affordance next to the "Choose" button.
+   */
+  .product-row__summary {
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .product-row__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .product-row__summary:hover,
+  .product-row--expandable[open] > .product-row__summary {
+    background-color: var(--row-hover, rgb(0 0 0 / 3%));
+  }
+
+  /* Filled while open, so an expanded row reads as the active one. */
+  .product-row--expandable[open] > .product-row__summary .product-row__button {
+    color: var(--row-accent-text, #ffffff);
+    background-color: var(--row-accent, #0d463d);
+  }
+
+  .product-row:not(.product-row--expandable):hover {
+    background-color: var(--row-hover, rgb(0 0 0 / 3%));
+  }
+
+  .product-row__panel {
+    padding: 0.25rem 1rem 1rem;
+    background-color: var(--row-hover, rgb(0 0 0 / 3%));
+    border-top: 1px solid var(--row-border, rgb(0 0 0 / 8%));
+  }
+
+  /*
+   * Indented to line up with the title above rather than the thumbnail, so the
+   * variants read as belonging to the product they opened from.
+   */
+  @media (min-width: 48rem) {
+    .product-row__panel {
+      padding: 0.5rem 1.25rem 1rem calc(var(--row-media-size, 72px) + 2.75rem);
+    }
+  }
+
+  .product-row__variant {
+    display: grid;
+    align-items: center;
+    gap: 0.125rem 1rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'title  action'
+      'price  action'
+      'status status';
+    padding: 0.5rem 0;
+  }
+
+  @media (min-width: 48rem) {
+    .product-row__variant {
+      gap: 0 1rem;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 7rem) auto;
+      grid-template-areas:
+        'title price action'
+        'status status status';
+    }
+  }
+
+  .product-row__variant + .product-row__variant {
+    border-top: 1px solid var(--row-border, rgb(0 0 0 / 8%));
+  }
+
+  .product-row__variant-title {
+    grid-area: title;
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.625rem;
+  }
+
+  .product-row__variant-price {
+    grid-area: price;
+  }
+
+  .product-row__variant-action {
+    grid-area: action;
+    justify-self: end;
+  }
+
+  .product-row__panel-footer {
+    margin-top: 0.75rem;
+    opacity: 0.7;
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  // Adds to the cart in the background, so a shopper working down a list of
+  // literature doesn't lose their place between items.
+  //
+  // Every form here is an ordinary POST to /cart/add that works on its own, and
+  // this only intercepts the submit — with JavaScript off the page still adds,
+  // it just reloads the way it always did.
+  //
+  // One delegated listener covers every row on the page, including rows the
+  // theme editor re-renders, so there's nothing to re-initialise.
+  (() => {
+    const ADDED_MESSAGE_MS = 4000;
+
+    // The form and its status share a grid container, which is what scopes the
+    // lookup — a product row holds its variants' statuses too, so searching the
+    // whole row would find the wrong one.
+    function statusFor(form) {
+      const scope = form.closest('.product-row__main, .product-row__variant');
+      return scope ? scope.querySelector('[data-quantity-status]') : null;
+    }
+
+    function setStatus(form, message, isError) {
+      const status = statusFor(form);
+      if (!status) return;
+
+      status.textContent = message;
+      status.toggleAttribute('data-error', Boolean(isError));
+    }
+
+    // The header renders a count for the mobile row and another for desktop, so
+    // this deliberately updates all of them.
+    function setCartCount(count) {
+      document.querySelectorAll('[data-cart-count]').forEach((element) => {
+        element.textContent = count;
+      });
+    }
+
+    // /cart/add.js replies with the line item it added, not with a cart total,
+    // so the new count has to be read back separately.
+    async function refreshCartCount(cartUrl) {
+      if (!cartUrl) return;
+
+      const response = await fetch(`${cartUrl}.js`, {
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!response.ok) return;
+
+      const cart = await response.json();
+      setCartCount(cart.item_count);
+    }
+
+    async function addToCart(form) {
+      if (form.dataset.busy) return;
+
+      const button = form.querySelector('[data-quantity-submit]');
+      const quantityField = form.elements.namedItem('quantity');
+      const variantField = form.elements.namedItem('id');
+      if (!quantityField || !variantField) return;
+
+      // `min="1"` already stops the spinner going below one, but the field can
+      // still be cleared or typed into, so the floor is applied again here.
+      const quantity = Math.max(1, Math.floor(Number(quantityField.value) || 1));
+      quantityField.value = quantity;
+
+      form.dataset.busy = 'true';
+      if (button) button.disabled = true;
+      setStatus(form, '', false);
+
+      try {
+        const response = await fetch(`${form.getAttribute('action')}.js`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            items: [{ id: variantField.value, quantity }],
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          // Shopify explains the refusal in `description` — most often that the
+          // quantity asked for is more than the stock left.
+          setStatus(form, result.description || result.message || form.dataset.errorMessage, true);
+          return;
+        }
+
+        await refreshCartCount(form.dataset.cartUrl);
+
+        // Back to one: leaving a large quantity in the field turns an
+        // accidental second click into an order nobody meant to place.
+        quantityField.value = 1;
+
+        setStatus(form, form.dataset.addedMessage, false);
+        window.setTimeout(() => setStatus(form, '', false), ADDED_MESSAGE_MS);
+      } catch (error) {
+        setStatus(form, form.dataset.errorMessage, true);
+      } finally {
+        delete form.dataset.busy;
+        if (button) button.disabled = false;
+      }
+    }
+
+    document.addEventListener('submit', (event) => {
+      const form = event.target;
+      if (!form.matches || !form.matches('[data-quantity-form]')) return;
+
+      event.preventDefault();
+      addToCart(form);
+    });
+  })();
+{% endjavascript %}

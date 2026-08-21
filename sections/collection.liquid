@@ -5,43 +5,433 @@
   https://shopify.dev/docs/storefronts/themes/architecture/templates/collection
 {% endcomment %}
 
-<h1>{{ collection.title }}</h1>
+{%- liquid
+  # `subtitle_metafield` is written as `namespace.key` in one field to keep the
+  # settings panel short.
+  assign metafield_parts = section.settings.subtitle_metafield | split: '.'
+  assign metafield_namespace = metafield_parts[0]
+  assign metafield_key = metafield_parts[1]
 
-<div class="collection-products">
-  {% paginate collection.products by 20 %}
-    {% for product in collection.products %}
-      <div class="collection-product">
-        {% if product.featured_image %}
-          {% render 'image',
-            class: 'collection-product__image',
-            image: product.featured_image,
-            url: product.url,
-            width: 400,
-            height: 400,
-            crop: 'center'
-          %}
-        {% endif %}
-        <div class="collection-product__content">
-          <p>{{ product.title | escape | link_to: product.url }}</p>
-          <p class="font-price">{{ product.price | money }}</p>
-        </div>
+  # The thumbnail is a fixed square at every breakpoint, so `sizes` is just that
+  # square. Built up here because a filter argument can't itself be filtered.
+  assign media_sizes = section.settings.media_size | append: 'px'
+
+  # `back` sends the shopper to the page they added from. The header's cart
+  # count is what confirms the add, which is why staying put is the default:
+  # this list is built for ordering several things in a row.
+  assign return_to = ''
+  if section.settings.after_add == 'stay'
+    assign return_to = 'back'
+  endif
+
+  assign filter_menu = section.settings.filter_menu
+  assign has_filters = false
+  if filter_menu != blank
+    if filter_menu.links.size > 0
+      assign has_filters = true
+    endif
+  endif
+-%}
+
+<section
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --row-bg: {{ section.settings.row_background_color }};
+    --row-border: {{ section.settings.text_color | color_modify: 'alpha', 0.1 }};
+    --row-input-border: {{ section.settings.text_color | color_modify: 'alpha', 0.3 }};
+    --row-hover: {{ section.settings.background_color }};
+    --row-media-bg: {{ section.settings.media_background_color }};
+    --row-media-size: {{ section.settings.media_size }}px;
+    --row-media-fit: {{ section.settings.media_fit }};
+    --row-accent: {{ section.settings.accent_color }};
+    --row-accent-text: {{ section.settings.accent_text_color }};
+    --pill-border: {{ section.settings.text_color | color_modify: 'alpha', 0.2 }};
+  "
+>
+  <div class="mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] py-8 lg:py-12">
+    {%- if section.settings.show_breadcrumb -%}
+      <nav aria-label="{{ 'general.breadcrumb.label' | t }}">
+        <ol role="list" class="collection__breadcrumb flex list-none flex-wrap items-center gap-2 pl-0 text-sm leading-snug">
+          <li>
+            <a class="collection__breadcrumb-link" href="{{ routes.root_url }}">{{ 'general.breadcrumb.home' | t }}</a>
+          </li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page">{{ collection.title }}</li>
+        </ol>
+      </nav>
+    {%- endif -%}
+
+    <div class="mt-3 flex flex-wrap items-end justify-between gap-x-8 gap-y-2">
+      <div class="min-w-0">
+        <h1 class="font-serif text-4xl leading-tight font-light lg:text-5xl">{{ collection.title }}</h1>
+
+        {%- if section.settings.show_description -%}
+          {%- if collection.description != blank -%}
+            <div class="collection__description mt-2 max-w-[60ch] text-base leading-snug">
+              {{- collection.description -}}
+            </div>
+          {%- endif -%}
+        {%- endif -%}
       </div>
-    {% endfor %}
 
-    {{ paginate | default_pagination }}
-  {% endpaginate %}
-</div>
+      {%- if section.settings.show_count -%}
+        <p class="collection__count text-sm leading-snug">
+          {{- 'general.navigation.count_products' | t: count: collection.products_count }}
+          <span aria-hidden="true"> · </span>
+          {{ 'collections.list_view' | t -}}
+        </p>
+      {%- endif -%}
+    </div>
+
+    {%- if has_filters -%}
+      <nav class="mt-6 flex flex-wrap gap-2" aria-label="{{ 'collections.filters' | t }}">
+        {%- for link in filter_menu.links -%}
+          {%- liquid
+            # A menu item can point at this collection either as a proper
+            # collection link or as a hand-typed URL, so both are checked.
+            assign is_active = false
+            if link.type == 'collection_link'
+              if link.object.handle == collection.handle
+                assign is_active = true
+              endif
+            endif
+            if link.url == request.path
+              assign is_active = true
+            endif
+          -%}
+
+          <a
+            href="{{ link.url }}"
+            class="collection__pill {% if is_active %}collection__pill--active{% endif %}"
+            {% if is_active %}
+              aria-current="page"
+            {% endif %}
+          >
+            {{- link.title -}}
+          </a>
+        {%- endfor -%}
+      </nav>
+    {%- endif -%}
+
+    {%- paginate collection.products by section.settings.products_per_page -%}
+      {%- if collection.products.size > 0 -%}
+        <ul role="list" class="collection__list mt-6 list-none pl-0 lg:mt-8">
+          {%- for product in collection.products -%}
+            {%- liquid
+              assign subtitle = ''
+              case section.settings.subtitle_source
+                when 'metafield'
+                  assign subtitle = product.metafields[metafield_namespace][metafield_key] | metafield_text
+                when 'product_type'
+                  assign subtitle = product.type
+                when 'vendor'
+                  assign subtitle = product.vendor
+                when 'variant_count'
+                  # Only says something worth reading once there's a choice to
+                  # make — "1 option" is noise on a single-variant product.
+                  if product.variants.size > 1
+                    assign subtitle = 'products.option_count' | t: count: product.variants.size
+                  endif
+              endcase
+            -%}
+
+            <li class="collection__item">
+              {% render 'product-row',
+                product: product,
+                subtitle: subtitle,
+                show_sku: section.settings.show_sku,
+                variant_limit: section.settings.variant_limit,
+                sizes: media_sizes,
+                return_to: return_to
+              %}
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- else -%}
+        <p class="mt-6 text-base leading-snug">{{ 'collections.empty' | t }}</p>
+      {%- endif -%}
+
+      {%- if paginate.pages > 1 -%}
+        <nav class="collection__pagination mt-8" aria-label="{{ 'collections.pagination' | t }}">
+          {{ paginate | default_pagination }}
+        </nav>
+      {%- endif -%}
+    {%- endpaginate -%}
+  </div>
+</section>
 
 {% stylesheet %}
-  .collection-products {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+  .collection__breadcrumb,
+  .collection__count,
+  .collection__description {
+    opacity: 0.7;
+  }
+
+  .collection__breadcrumb-link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .collection__breadcrumb-link:hover,
+  .collection__breadcrumb-link:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /*
+   * Links come out of the collection description as bare `<a>` tags, so they
+   * can't carry utility classes — they're styled from here instead.
+   */
+  .collection__description a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .collection__description a:hover,
+  .collection__description a:focus-visible {
+    text-decoration: none;
+  }
+
+  /*
+   * The active pill inverts rather than just changing weight, so which category
+   * you're browsing is readable at a glance from across the row.
+   */
+  .collection__pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1.125rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+    background-color: var(--row-bg, #ffffff);
+    border: 1px solid var(--pill-border, rgb(0 0 0 / 20%));
+    border-radius: 999px;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .collection__pill:hover,
+  .collection__pill:focus-visible {
+    border-color: var(--row-accent, #0d463d);
+  }
+
+  .collection__pill--active,
+  .collection__pill--active:hover {
+    color: var(--row-accent-text, #ffffff);
+    background-color: var(--row-accent, #0d463d);
+    border-color: var(--row-accent, #0d463d);
+  }
+
+  /*
+   * One panel with hairlines between the rows, rather than separate cards — the
+   * point of a list view is that the prices and buttons line up down the page.
+   */
+  .collection__list {
+    overflow: hidden;
+    background-color: var(--row-bg, #ffffff);
+    border: 1px solid var(--row-border, rgb(0 0 0 / 8%));
+    border-radius: 2px;
+  }
+
+  .collection__item + .collection__item {
+    border-top: 1px solid var(--row-border, rgb(0 0 0 / 8%));
+  }
+
+  /*
+   * `default_pagination` emits bare `<span>`s and `<a>`s with no wrapper of
+   * their own, so the spacing has to come from the container.
+   */
+  .collection__pagination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .collection__pagination a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .collection__pagination a:hover,
+  .collection__pagination a:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .collection__pagination .current {
+    font-weight: 600;
   }
 {% endstylesheet %}
 
 {% schema %}
 {
   "name": "t:general.collection",
-  "settings": []
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_breadcrumb",
+      "label": "t:labels.show_breadcrumb",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "t:labels.show_description",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_count",
+      "label": "t:labels.show_count",
+      "default": true
+    },
+    {
+      "type": "link_list",
+      "id": "filter_menu",
+      "label": "t:labels.filter_menu",
+      "info": "t:info.filter_menu"
+    },
+    {
+      "type": "header",
+      "content": "t:general.row"
+    },
+    {
+      "type": "select",
+      "id": "subtitle_source",
+      "label": "t:labels.subtitle_source",
+      "info": "t:info.row_subtitle_source",
+      "default": "metafield",
+      "options": [
+        { "value": "metafield", "label": "t:options.subtitle_source.metafield" },
+        { "value": "variant_count", "label": "t:options.subtitle_source.variant_count" },
+        { "value": "product_type", "label": "t:options.subtitle_source.product_type" },
+        { "value": "vendor", "label": "t:options.subtitle_source.vendor" },
+        { "value": "none", "label": "t:options.subtitle_source.none" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "subtitle_metafield",
+      "label": "t:labels.subtitle_metafield",
+      "info": "t:info.subtitle_metafield",
+      "default": "custom.subtitle",
+      "visible_if": "{{ section.settings.subtitle_source == 'metafield' }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_sku",
+      "label": "t:labels.show_sku",
+      "info": "t:info.show_sku",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "media_size",
+      "label": "t:labels.media_size",
+      "min": 48,
+      "max": 120,
+      "step": 8,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "select",
+      "id": "media_fit",
+      "label": "t:labels.media_fit",
+      "info": "t:info.media_fit",
+      "default": "contain",
+      "options": [
+        { "value": "cover", "label": "t:options.media_fit.cover" },
+        { "value": "contain", "label": "t:options.media_fit.contain" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.variants"
+    },
+    {
+      "type": "range",
+      "id": "variant_limit",
+      "label": "t:labels.variant_limit",
+      "info": "t:info.variant_limit",
+      "min": 5,
+      "max": 50,
+      "step": 5,
+      "default": 50
+    },
+    {
+      "type": "select",
+      "id": "after_add",
+      "label": "t:labels.after_add",
+      "info": "t:info.after_add",
+      "default": "stay",
+      "options": [
+        { "value": "stay", "label": "t:options.after_add.stay" },
+        { "value": "cart", "label": "t:options.after_add.cart" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.layout"
+    },
+    {
+      "type": "range",
+      "id": "products_per_page",
+      "label": "t:labels.products_per_page",
+      "info": "t:info.products_per_page",
+      "min": 8,
+      "max": 48,
+      "step": 4,
+      "default": 24
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "row_background_color",
+      "label": "t:labels.row_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "media_background_color",
+      "label": "t:labels.media_background_color",
+      "default": "#EAE6DC"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "t:labels.accent_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "accent_text_color",
+      "label": "t:labels.accent_text_color",
+      "default": "#FFFFFF"
+    }
+  ]
 }
 {% endschema %}
