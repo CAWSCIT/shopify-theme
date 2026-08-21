@@ -2,16 +2,269 @@
   This section is used in the page template to render store pages like About us
   or Contact us.
 
+  Everything below the title comes out of the page editor as bare HTML, so none
+  of it can carry a utility class — the whole of `page.content` is styled from
+  the `{% stylesheet %}` block instead.
+
   https://shopify.dev/docs/storefronts/themes/architecture/templates/page
 {% endcomment %}
 
-<h1>{{ page.title }}</h1>
+<section
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --page-content-width: {{ section.settings.content_width }};
+    --page-padding: {{ section.settings.padding }}px;
+    --page-rule: {{ section.settings.text_color | color_modify: 'alpha', 0.15 }};
+    --page-button-bg: {{ section.settings.button_background_color }};
+    --page-button-text: {{ section.settings.button_text_color }};
+  "
+>
+  {% # Narrower than the theme's page width: a column of prose is easier to read
+     # at a shorter measure than a grid of products is. %}
+  <div class="mx-auto max-w-[var(--page-content-width)] px-[var(--page-margin)] py-[var(--page-padding)]">
+    {%- if section.settings.show_title -%}
+      <h1 class="page__title font-serif text-4xl leading-tight font-light lg:text-5xl">{{ page.title }}</h1>
+    {%- endif -%}
 
-{{ page.content }}
+    {%- if page.content != blank -%}
+      <div class="page__content">
+        {{ page.content }}
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  .page__title + .page__content {
+    margin-top: 2rem;
+  }
+
+  /*
+   * 18px, and a line height to match: this is the one place in the theme given
+   * over to reading rather than scanning.
+   */
+  .page__content {
+    font-size: 1.125rem;
+    line-height: 1.7;
+  }
+
+  .page__content > * + * {
+    margin-top: 1.25rem;
+  }
+
+  /*
+   * A heading opens a new part of the page, so it takes more room above it than
+   * a paragraph does — but not when it's the first thing in the content.
+   */
+  .page__content > * + :is(h1, h2, h3, h4, h5, h6) {
+    margin-top: 2.5rem;
+  }
+
+  /*
+   * The fallback matters: `--font-serif` is a Tailwind theme token, and Tailwind
+   * only emits the ones something in the theme actually uses.
+   */
+  .page__content :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--font-serif, Newsreader, ui-serif, Georgia, serif);
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .page__content h1 {
+    font-size: 2.25rem;
+  }
+
+  .page__content h2 {
+    font-size: 1.75rem;
+  }
+
+  .page__content h3 {
+    font-size: 1.375rem;
+  }
+
+  .page__content h4 {
+    font-size: 1.1875rem;
+  }
+
+  .page__content :is(h5, h6) {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  /*
+   * Underlined at rest and not on hover, so a link reads as one in a block of
+   * text without the page turning into a field of moving underlines.
+   */
+  .page__content a:not(.button) {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .page__content a:not(.button):hover,
+  .page__content a:not(.button):focus-visible {
+    text-decoration: none;
+  }
+
+  /*
+   * Unlayered, so this beats the `height: auto` that `critical.css` sets on
+   * every image from `@layer reset`. Full width on a phone, where 80% would
+   * only waste the little space there is.
+   */
+  .page__content img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  @media screen and (min-width: 48rem) {
+    .page__content img {
+      width: 80%;
+    }
+  }
+
+  .page__content :is(ul, ol) {
+    padding-left: 1.5rem;
+  }
+
+  .page__content ul {
+    list-style: disc;
+  }
+
+  .page__content ol {
+    list-style: decimal;
+  }
+
+  .page__content li + li {
+    margin-top: 0.5rem;
+  }
+
+  .page__content blockquote {
+    padding-left: 1.5rem;
+    font-family: var(--font-serif, Newsreader, ui-serif, Georgia, serif);
+    font-style: italic;
+    border-left: 2px solid var(--page-rule, rgb(0 0 0 / 15%));
+  }
+
+  .page__content hr {
+    height: 0;
+    margin-block: 2.5rem;
+    border: 0;
+    border-top: 1px solid var(--page-rule, rgb(0 0 0 / 15%));
+  }
+
+  .page__content table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .page__content :is(th, td) {
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--page-rule, rgb(0 0 0 / 15%));
+  }
+
+  .page__content th {
+    font-weight: 600;
+  }
+
+  /*
+   * The page editor writes no buttons of its own, so these are for markup the
+   * merchant adds by hand — a `<button>`, or a link given `class="button"`.
+   */
+  .page__content :is(button, .button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.875rem 1.75rem;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--page-button-text, #ffffff);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    background-color: var(--page-button-bg, #0d463d);
+    border: 0;
+    border-radius: var(--style-border-radius-inputs, 2px);
+    transition: opacity 150ms ease;
+  }
+
+  .page__content :is(button, .button):hover,
+  .page__content :is(button, .button):focus-visible {
+    opacity: 0.88;
+  }
+{% endstylesheet %}
 
 {% schema %}
 {
   "name": "t:general.page",
-  "settings": []
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_title",
+      "label": "t:labels.show_title",
+      "info": "t:info.show_title",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "content_width",
+      "label": "t:labels.content_width",
+      "info": "t:info.content_width",
+      "default": "48rem",
+      "options": [
+        { "value": "40rem", "label": "t:options.content_width.narrow" },
+        { "value": "48rem", "label": "t:options.content_width.medium" },
+        { "value": "60rem", "label": "t:options.content_width.wide" }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "padding",
+      "label": "t:labels.padding",
+      "info": "t:info.page_padding",
+      "min": 0,
+      "max": 128,
+      "step": 4,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "button_background_color",
+      "label": "t:labels.button_background_color",
+      "info": "t:info.page_button",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "t:labels.button_text_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  }
 }
 {% endschema %}

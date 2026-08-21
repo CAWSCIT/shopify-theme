@@ -71,6 +71,7 @@
     "columns_desktop": "Columns on desktop",
     "columns_mobile": "Columns on mobile",
     "content": "Content",
+    "content_width": "Content width",
     "continue_url": "Keep shopping link",
     "count_label": "Count label",
     "default_quantity": "Starting quantity",
@@ -110,6 +111,7 @@
     "show_unit_price": "Show the price per item",
     "show_price_unit": "Show \"each\" after the price",
     "show_sku": "Show SKU",
+    "show_title": "Show page title",
     "show_type": "Show product type",
     "show_view_all": "Show link to collection",
     "stock_note": "Stock note",
@@ -159,15 +161,19 @@
     "eyebrow_optional": "The small label above the heading. Leave blank to hide it.",
     "image_position": "Which half of the panel the image takes. Both halves stack on a phone, with the text first.",
     "collection_description": "The collection description from the admin, trimmed to the first 15 words.",
+    "content_width": "How wide the text column runs. Narrower is easier to read; wider suits a page carrying images or a table.",
     "collection_price": "Worked out from the products in the collection — a single figure when they all cost the same, otherwise the cheapest, shown as a starting price.",
     "card_link": "Points anywhere — a product, collection, page, or an address off the store. Leave blank for a card that isn't clickable.",
     "card_subtitle": "The small line under the card title, for example a price or a short description.",
+    "page_button": "A link given class=\"button\" in the page's HTML renders as a button in this colour, as does a button tag.",
+    "page_padding": "The space above and below the content, inside the coloured background.",
     "category_menu": "Shown down the left, with the one you're browsing highlighted. Each item's title is the product type it filters by. Leave blank to list every product type in the catalog, alphabetically.",
     "filter_menu": "Shown as pills above the list, with the collection you're on highlighted. Leave blank to hide them.",
     "media_fit": "Fill crops the image to the shape above. Fit shows all of it, with the image background around the edges.",
     "products_per_page": "How many products before the list pages. Products with variants add a row each when opened, so a lower number keeps the page light.",
     "row_subtitle_source": "The short line beside the product title, for example \"9 languages\" or \"Daily meditations\".",
     "show_sku": "Taken from the first available variant, and from each variant in the expanded list.",
+    "show_title": "Turn this off for a page whose content opens with a heading of its own.",
     "show_type": "The product type under the title, which is what the categories filter by.",
     "variant_limit": "How many variants a row lists when it's opened. Anything past this links out to the product page. Shopify caps this at 50 whatever you pick.",
     "section_background_color": "Sits behind the panel, edge to edge. Match it to the section above to make the two read as one.",
@@ -237,6 +243,11 @@
       "title": "Title",
       "subtitle": "Subtitle",
       "normal": "Normal text"
+    },
+    "content_width": {
+      "narrow": "Narrow",
+      "medium": "Medium",
+      "wide": "Wide"
     }
   }
 }
