@@ -55,7 +55,54 @@
     }
   },
   "customers": {
-    "account": "Account",
+    "account": {
+      "addresses": "Addresses",
+      "default_address": "Default address",
+      "manage_addresses": "Manage addresses",
+      "no_address": "No address saved yet.",
+      "no_orders": "No orders yet.",
+      "order_date": "Date",
+      "order_fulfillment": "Delivery",
+      "order_number": "Order",
+      "order_payment": "Payment",
+      "order_total": "Total",
+      "orders": "Orders",
+      "sign_out": "Sign out",
+      "signed_in_as": "Signed in as {{ email }}",
+      "start_shopping": "Start shopping",
+      "title": "Account",
+      "view_order": "View order {{ name }}"
+    },
+    "activate_account": {
+      "confirm": "Confirm password",
+      "decline": "Decline the invitation",
+      "note": "Set a password to finish setting up your account.",
+      "password": "Password",
+      "submit": "Activate account",
+      "title": "Activate your account"
+    },
+    "addresses": {
+      "add": "Add an address",
+      "add_submit": "Save address",
+      "address1": "Address",
+      "address2": "Apartment, suite, etc.",
+      "back": "Back to account",
+      "city": "City",
+      "company": "Company",
+      "country": "Country/region",
+      "default": "Default",
+      "delete": "Delete",
+      "delete_confirm": "Delete this address?",
+      "edit": "Edit",
+      "first_name": "First name",
+      "last_name": "Last name",
+      "none": "No addresses saved yet.",
+      "phone": "Phone",
+      "province": "State/province",
+      "set_default": "Use this as my default address",
+      "title": "Addresses",
+      "zip": "Postal/ZIP code"
+    },
     "login": {
       "create_account": "Create an account",
       "email": "Email",
@@ -67,6 +114,43 @@
       "recover_submit": "Send the link",
       "submit": "Sign in",
       "title": "Sign in"
+    },
+    "order": {
+      "back": "Back to account",
+      "billing_address": "Billing address",
+      "cancelled": "This order was cancelled on {{ date }}.",
+      "cancelled_reason": "Reason: {{ reason }}",
+      "fulfilled_on": "Shipped {{ date }}",
+      "fulfillment_status": "Delivery",
+      "payment_status": "Payment",
+      "placed_on": "Placed on {{ date }}",
+      "price": "Price",
+      "product": "Product",
+      "quantity": "Quantity",
+      "shipping": "Shipping",
+      "shipping_address": "Shipping address",
+      "subtotal": "Subtotal",
+      "tax": "Tax",
+      "title": "Order {{ name }}",
+      "total": "Total",
+      "tracking": "Track this shipment"
+    },
+    "register": {
+      "email": "Email",
+      "first_name": "First name",
+      "have_account": "Already have an account?",
+      "last_name": "Last name",
+      "password": "Password",
+      "sign_in": "Sign in",
+      "submit": "Create account",
+      "title": "Create an account"
+    },
+    "reset_password": {
+      "confirm": "Confirm password",
+      "note": "Choose a new password for your account.",
+      "password": "New password",
+      "submit": "Save password",
+      "title": "Set a new password"
     }
   },
   "collections": {

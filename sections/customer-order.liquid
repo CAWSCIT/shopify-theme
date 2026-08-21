@@ -1,0 +1,200 @@
+{% comment %}
+  This section is used in the customer order template to render one order — what
+  was in it, what it came to, and where it went.
+
+  https://shopify.dev/docs/storefronts/themes/architecture/templates/customers-order
+{% endcomment %}
+
+{%- liquid
+  assign order_date = order.created_at | time_tag: format: 'date'
+  assign page_title = 'customers.order.title' | t: name: order.name
+  assign page_intro = 'customers.order.placed_on' | t: date: order_date
+-%}
+
+{%- capture body -%}
+  <p class="mt-3">
+    <a class="account__link text-base leading-snug" href="{{ routes.account_url }}">
+      {{- 'customers.order.back' | t -}}
+    </a>
+  </p>
+
+  {%- if order.cancelled -%}
+    {%- assign cancelled_date = order.cancelled_at | time_tag: format: 'date' -%}
+    <div class="account__panel order__cancelled mt-6">
+      <p>{{ 'customers.order.cancelled' | t: date: cancelled_date }}</p>
+
+      {%- if order.cancel_reason != blank -%}
+        <p class="mt-1">{{ 'customers.order.cancelled_reason' | t: reason: order.cancel_reason_label }}</p>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+
+  <div class="account__table-wrap mt-8">
+    <table class="account__table">
+      <caption class="sr-only">{{ page_title }}</caption>
+
+      <thead>
+        <tr>
+          <th scope="col">{{ 'customers.order.product' | t }}</th>
+          <th scope="col">{{ 'customers.order.price' | t }}</th>
+          <th scope="col">{{ 'customers.order.quantity' | t }}</th>
+          <th scope="col">{{ 'customers.order.total' | t }}</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {%- for line_item in order.line_items -%}
+          <tr>
+            <th scope="row" class="font-normal">
+              <span class="order__title">{{ line_item.title }}</span>
+
+              {%- if line_item.sku != blank -%}
+                <span class="order__sku account__muted">{{ line_item.sku }}</span>
+              {%- endif -%}
+
+              {%- if line_item.fulfillment -%}
+                {%- assign fulfilled_date = line_item.fulfillment.created_at | time_tag: format: 'date' -%}
+                <span class="order__fulfilled account__muted">
+                  {{- 'customers.order.fulfilled_on' | t: date: fulfilled_date -}}
+                </span>
+
+                {%- if line_item.fulfillment.tracking_url -%}
+                  <a class="account__link order__tracking" href="{{ line_item.fulfillment.tracking_url }}">
+                    {{- 'customers.order.tracking' | t -}}
+                  </a>
+                {%- endif -%}
+              {%- endif -%}
+            </th>
+
+            <td class="font-price">{{ line_item.original_price | money }}</td>
+            <td>{{ line_item.quantity }}</td>
+            <td class="font-price">{{ line_item.final_line_price | money }}</td>
+          </tr>
+        {%- endfor -%}
+      </tbody>
+
+      <tfoot>
+        <tr>
+          <th scope="row" colspan="3" class="font-normal">{{ 'customers.order.subtotal' | t }}</th>
+          <td class="font-price">{{ order.line_items_subtotal_price | money }}</td>
+        </tr>
+
+        {%- for discount in order.cart_level_discount_applications -%}
+          <tr>
+            <th scope="row" colspan="3" class="font-normal">{{ discount.title }}</th>
+            <td class="font-price">−{{ discount.total_allocated_amount | money }}</td>
+          </tr>
+        {%- endfor -%}
+
+        <tr>
+          <th scope="row" colspan="3" class="font-normal">{{ 'customers.order.shipping' | t }}</th>
+          <td class="font-price">{{ order.shipping_price | money }}</td>
+        </tr>
+
+        <tr>
+          <th scope="row" colspan="3" class="font-normal">{{ 'customers.order.tax' | t }}</th>
+          <td class="font-price">{{ order.tax_price | money }}</td>
+        </tr>
+
+        <tr class="order__total">
+          <th scope="row" colspan="3">{{ 'customers.order.total' | t }}</th>
+          <td class="font-price">{{ order.total_price | money }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="order__addresses mt-10">
+    <div class="account__panel">
+      <p class="account__section-title">{{ 'customers.order.shipping_address' | t }}</p>
+
+      {%- if order.shipping_address != blank -%}
+        <address class="account__address mt-2">{{ order.shipping_address | format_address }}</address>
+      {%- endif -%}
+
+      <p class="account__muted mt-3 text-sm leading-snug">
+        {{- 'customers.order.fulfillment_status' | t }}: {{ order.fulfillment_status_label -}}
+      </p>
+    </div>
+
+    <div class="account__panel">
+      <p class="account__section-title">{{ 'customers.order.billing_address' | t }}</p>
+
+      {%- if order.billing_address != blank -%}
+        <address class="account__address mt-2">{{ order.billing_address | format_address }}</address>
+      {%- endif -%}
+
+      <p class="account__muted mt-3 text-sm leading-snug">
+        {{- 'customers.order.payment_status' | t }}: {{ order.financial_status_label -}}
+      </p>
+    </div>
+  </div>
+{%- endcapture -%}
+
+{% render 'account-page',
+  settings: section.settings,
+  title: page_title,
+  intro: page_intro,
+  body: body,
+  width: '56rem'
+%}
+
+{% stylesheet %}
+  /*
+   * The product cell stacks: what it was, then the SKU and anything known about
+   * the shipment under it.
+   */
+  .account__table th .order__title {
+    display: block;
+  }
+
+  .order__sku,
+  .order__fulfilled,
+  .order__tracking {
+    display: block;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .order__total :is(th, td) {
+    font-weight: 600;
+    border-top: 1px solid var(--account-border, rgb(0 0 0 / 12%));
+  }
+
+  .account__table tfoot :is(th, td) {
+    border-bottom: 0;
+  }
+
+  .order__cancelled {
+    color: var(--account-error, #a5361a);
+    border-color: var(--account-error, #a5361a);
+  }
+
+  .order__addresses {
+    display: grid;
+    gap: 1rem;
+  }
+
+  @media screen and (min-width: 40rem) {
+    .order__addresses {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:general.order",
+  "settings": [
+    { "type": "header", "content": "t:general.colors" },
+    { "type": "color", "id": "background_color", "label": "t:labels.background_color", "default": "#F9F8F4" },
+    { "type": "color", "id": "text_color", "label": "t:labels.text_color", "default": "#1C2320" },
+    { "type": "color", "id": "panel_background_color", "label": "t:labels.panel_background_color", "default": "#FFFFFF" },
+    { "type": "color", "id": "accent_color", "label": "t:labels.accent_color", "default": "#0D463D" },
+    { "type": "color", "id": "button_background_color", "label": "t:labels.button_background_color", "default": "#0D463D" },
+    { "type": "color", "id": "button_text_color", "label": "t:labels.button_text_color", "default": "#FFFFFF" },
+    { "type": "color", "id": "error_color", "label": "t:labels.error_color", "default": "#A5361A" }
+  ],
+  "disabled_on": { "groups": ["header", "footer"] }
+}
+{% endschema %}

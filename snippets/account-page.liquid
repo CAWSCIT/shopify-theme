@@ -1,0 +1,197 @@
+{% doc %}
+  Renders a customer account page — the frame all six of them share: the colour
+  properties they theme themselves with, the container, and the heading.
+
+  A snippet can't wrap a block of markup, so the section captures its body into
+  a string and hands it over. That keeps the frame in one place, and the pages
+  from drifting apart.
+
+  @param {object} settings - The section's settings
+  @param {string} title - The page heading
+  @param {string} body - The page's markup, captured by the section
+  @param {string} [intro] - A line under the heading
+  @param {string} [width] - Container width, defaults to 34rem
+
+  @example
+  {%- capture body -%}…{%- endcapture -%}
+  {% render 'account-page', settings: section.settings, title: 'Account', body: body %}
+{% enddoc %}
+
+<section
+  class="account full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ settings.background_color }};
+    --section-text: {{ settings.text_color }};
+    --account-muted: {{ settings.text_color | color_modify: 'alpha', 0.7 }};
+    --account-border: {{ settings.text_color | color_modify: 'alpha', 0.12 }};
+    --account-input-border: {{ settings.text_color | color_modify: 'alpha', 0.25 }};
+    --account-panel-bg: {{ settings.panel_background_color }};
+    --account-accent: {{ settings.accent_color }};
+    --account-button-bg: {{ settings.button_background_color }};
+    --account-button-text: {{ settings.button_text_color }};
+    --account-error: {{ settings.error_color }};
+    --account-width: {{ width | default: '34rem' }};
+  "
+>
+  <div class="mx-auto w-full max-w-[var(--account-width)] px-[var(--page-margin)] py-12 lg:py-16">
+    <h1 class="font-serif text-4xl leading-tight font-light lg:text-5xl">{{ title }}</h1>
+
+    {%- if intro != blank -%}
+      <p class="account__note mt-3 text-base leading-relaxed">{{ intro }}</p>
+    {%- endif -%}
+
+    {{ body }}
+  </div>
+</section>
+
+{% stylesheet %}
+  .account__note,
+  .account__muted {
+    color: var(--account-muted, inherit);
+  }
+
+  .account__link {
+    color: var(--account-accent, #0d463d);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .account__link:hover,
+  .account__link:focus-visible {
+    text-decoration: none;
+  }
+
+  .account__notice {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--account-accent, #0d463d);
+  }
+
+  /*
+   * `default_errors` writes a bare `<ul class="errors">`, so this is the only
+   * place its wording can be styled from.
+   */
+  .account__errors .errors {
+    padding: 0;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--account-error, #a5361a);
+    list-style: none;
+  }
+
+  /* Two fields side by side from `sm` up, stacked below it. */
+  .account__pair {
+    display: grid;
+    gap: 1rem;
+  }
+
+  @media screen and (min-width: 40rem) {
+    .account__pair {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .account__submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.875rem 1.75rem;
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--account-button-text, #ffffff);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    background-color: var(--account-button-bg, #0d463d);
+    border: 0;
+    border-radius: var(--style-border-radius-inputs, 2px);
+    transition: opacity 150ms ease;
+  }
+
+  .account__submit:hover,
+  .account__submit:focus-visible {
+    opacity: 0.88;
+  }
+
+  .account__submit--full {
+    width: 100%;
+  }
+
+  /* Outlined where the main action is filled, for anything secondary. */
+  .account__submit--quiet {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9375rem;
+    color: var(--account-accent, #0d463d);
+    background-color: transparent;
+    border: 1px solid var(--account-accent, #0d463d);
+  }
+
+  .account__submit--quiet:hover,
+  .account__submit--quiet:focus-visible {
+    color: var(--account-panel-bg, #ffffff);
+    background-color: var(--account-accent, #0d463d);
+    opacity: 1;
+  }
+
+  .account__panel {
+    padding: 1.5rem;
+    background-color: var(--account-panel-bg, #ffffff);
+    border: 1px solid var(--account-border, rgb(0 0 0 / 12%));
+    border-radius: 2px;
+  }
+
+  .account__section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /*
+   * A table on a phone is the one place horizontal scrolling is the right
+   * answer — the alternative is columns too narrow to read.
+   */
+  .account__table-wrap {
+    overflow-x: auto;
+  }
+
+  .account__table {
+    width: 100%;
+    border-collapse: collapse;
+    white-space: nowrap;
+  }
+
+  .account__table :is(th, td) {
+    padding: 0.875rem 1rem 0.875rem 0;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--account-border, rgb(0 0 0 / 12%));
+  }
+
+  /*
+   * Only the column headings are set as labels. A row heading is the order
+   * number or the product itself, which should read as what it is.
+   */
+  .account__table thead th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .account__table :is(tbody, tfoot) th {
+    font-weight: 400;
+  }
+
+  .account__table tbody tr:last-child :is(th, td) {
+    border-bottom: 0;
+  }
+
+  .account__address {
+    font-style: normal;
+    line-height: 1.6;
+  }
+{% endstylesheet %}

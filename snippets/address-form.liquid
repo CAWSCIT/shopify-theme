@@ -1,0 +1,208 @@
+{% doc %}
+  Renders the customer address form — the same fields whether an address is
+  being added or edited, which is the point of it being one file.
+
+  The province select is filled by the script in `customer-addresses` from the
+  country's `data-provinces`. With the script off the select is empty and can't
+  be, so a plain text input stands in inside a `<noscript>`.
+
+  @param {string} id - Unique suffix for the field ids, `new` or an address id
+  @param {object} [address] - The address being edited; omitted when adding
+  @param {string} submit_label - Wording for the submit button
+
+  @example
+  {% render 'address-form', id: 'new', submit_label: 'Save address' %}
+  {% render 'address-form', id: address.id, address: address, submit_label: 'Save address' %}
+{% enddoc %}
+
+{%- liquid
+  assign label_first_name = 'customers.addresses.first_name' | t
+  assign label_last_name = 'customers.addresses.last_name' | t
+  assign label_company = 'customers.addresses.company' | t
+  assign label_address1 = 'customers.addresses.address1' | t
+  assign label_address2 = 'customers.addresses.address2' | t
+  assign label_city = 'customers.addresses.city' | t
+  assign label_zip = 'customers.addresses.zip' | t
+  assign label_country = 'customers.addresses.country' | t
+  assign label_province = 'customers.addresses.province' | t
+  assign label_phone = 'customers.addresses.phone' | t
+
+  # Each field's id carries the address it belongs to, so the edit forms on
+  # the list don't all share one. Built here because a render argument can't
+  # itself be filtered.
+  assign id_first_name = 'address-first-name-' | append: id
+  assign id_last_name = 'address-last-name-' | append: id
+  assign id_company = 'address-company-' | append: id
+  assign id_address1 = 'address-address1-' | append: id
+  assign id_address2 = 'address-address2-' | append: id
+  assign id_city = 'address-city-' | append: id
+  assign id_zip = 'address-zip-' | append: id
+  assign id_country = 'address-country-' | append: id
+  assign id_province = 'address-province-' | append: id
+  assign id_province_text = 'address-province-text-' | append: id
+  assign id_phone = 'address-phone-' | append: id
+-%}
+
+{% # The script scopes a country select to its own province select through
+   # this wrapper, which is why two forms on a page don't fill each other in. %}
+<div data-address-form>
+  {% form 'customer_address', address, class: 'address-form' %}
+    {%- if form.errors -%}
+      <div class="account__errors mb-4">{{ form.errors | default_errors }}</div>
+    {%- endif -%}
+
+  <div class="account__pair">
+    {% render 'account-field',
+      id: id_first_name,
+      label: label_first_name,
+      name: 'address[first_name]',
+      value: form.first_name,
+      autocomplete: 'given-name'
+    %}
+
+    {% render 'account-field',
+      id: id_last_name,
+      label: label_last_name,
+      name: 'address[last_name]',
+      value: form.last_name,
+      autocomplete: 'family-name'
+    %}
+  </div>
+
+  {% render 'account-field',
+    id: id_company,
+    label: label_company,
+    name: 'address[company]',
+    value: form.company,
+    autocomplete: 'organization',
+    classes: 'mt-4'
+  %}
+
+  {% render 'account-field',
+    id: id_address1,
+    label: label_address1,
+    name: 'address[address1]',
+    value: form.address1,
+    autocomplete: 'address-line1',
+    classes: 'mt-4'
+  %}
+
+  {% render 'account-field',
+    id: id_address2,
+    label: label_address2,
+    name: 'address[address2]',
+    value: form.address2,
+    autocomplete: 'address-line2',
+    classes: 'mt-4'
+  %}
+
+  <div class="account__pair mt-4">
+    {% render 'account-field',
+      id: id_city,
+      label: label_city,
+      name: 'address[city]',
+      value: form.city,
+      autocomplete: 'address-level2'
+    %}
+
+    {% render 'account-field',
+      id: id_zip,
+      label: label_zip,
+      name: 'address[zip]',
+      value: form.zip,
+      autocomplete: 'postal-code'
+    %}
+  </div>
+
+  {%- liquid
+    # `country_option_tags` writes an option per country with no `selected`
+    # among them, so the chosen country is handed to the script to apply — the
+    # same way the province is, and from the same place. `form` rather than
+    # `address`, so a submission that came back refused keeps what was typed.
+    assign current_country = form.country | default: shop.address.country
+    capture country_attributes
+      echo 'data-address-country autocomplete="country-name" data-selected="'
+      echo current_country | escape
+      echo '"'
+    endcapture
+  -%}
+
+  {% render 'account-field',
+    id: id_country,
+    label: label_country,
+    name: 'address[country]',
+    options: country_option_tags,
+    attributes: country_attributes,
+    classes: 'mt-4'
+  %}
+
+  {% # Filled by the script from the country above. Hidden until it has
+     # something in it, and hidden for good on a country with no provinces. %}
+  <div class="mt-4" data-province-wrap hidden>
+    <div class="account-field">
+      <label class="account-label" for="{{ id_province }}">
+        {{- 'customers.addresses.province' | t -}}
+      </label>
+
+      <div class="account-select-wrap">
+        <select
+          class="account-input account-select"
+          id="{{ id_province }}"
+          name="address[province]"
+          data-province
+          data-selected="{{ form.province | escape }}"
+        ></select>
+      </div>
+    </div>
+  </div>
+
+  <noscript>
+    {% render 'account-field',
+      id: id_province_text,
+      label: label_province,
+      name: 'address[province]',
+      value: form.province,
+      autocomplete: 'address-level1',
+      classes: 'mt-4'
+    %}
+  </noscript>
+
+  {% render 'account-field',
+    id: id_phone,
+    label: label_phone,
+    name: 'address[phone]',
+    type: 'tel',
+    value: form.phone,
+    autocomplete: 'tel',
+    classes: 'mt-4'
+  %}
+
+  <label class="address-form__default mt-4">
+    {{ form.set_as_default_checkbox }}
+    <span>{{ 'customers.addresses.set_default' | t }}</span>
+  </label>
+
+  <button type="submit" class="account__submit mt-6">{{ submit_label }}</button>
+  {% endform %}
+</div>
+
+{% stylesheet %}
+  .address-form__default {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  /*
+   * `set_as_default_checkbox` writes the input itself, so it can't be given a
+   * class — it's sized from here.
+   */
+  .address-form__default input {
+    width: 1.0625rem;
+    height: 1.0625rem;
+    accent-color: var(--account-accent, #0d463d);
+  }
+{% endstylesheet %}

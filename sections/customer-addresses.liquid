@@ -1,0 +1,285 @@
+{% comment %}
+  This section is used in the customer addresses template to render the saved
+  addresses and the forms for adding and editing them.
+
+  https://shopify.dev/docs/storefronts/themes/architecture/templates/customers-addresses
+{% endcomment %}
+
+{%- liquid
+  assign page_title = 'customers.addresses.title' | t
+  assign submit_label = 'customers.addresses.add_submit' | t
+-%}
+
+{%- capture body -%}
+  <p class="mt-3">
+    <a class="account__link text-base leading-snug" href="{{ routes.account_url }}">
+      {{- 'customers.addresses.back' | t -}}
+    </a>
+  </p>
+
+  {% # Adding and editing are the same form, so it's built once as a snippet and
+     # rendered here for the new address and again inside each saved one.
+     #
+     # Captured before it's written out so the panel can be rendered already
+     # open when the address just submitted came back refused — `form` only
+     # exists inside the form tag, so there's no reading it from out here. %}
+  {%- capture new_address_form -%}
+    {% render 'address-form', id: 'new', submit_label: submit_label %}
+  {%- endcapture -%}
+
+  {%- assign new_address_open = false -%}
+  {%- if new_address_form contains 'class="errors"' -%}
+    {%- assign new_address_open = true -%}
+  {%- endif -%}
+
+  <details
+    class="addresses__new mt-8"
+    {% if new_address_open %}
+      open
+    {% endif %}
+  >
+    <summary class="addresses__summary">{{ 'customers.addresses.add' | t }}</summary>
+
+    <div class="account__panel mt-4">
+      {{ new_address_form }}
+    </div>
+  </details>
+
+  {%- if customer.addresses.size > 0 -%}
+    <ul role="list" class="addresses__list mt-10 list-none pl-0">
+      {%- for address in customer.addresses -%}
+        <li class="addresses__item">
+          <div class="addresses__head">
+            <address class="account__address">{{ address | format_address }}</address>
+
+            {%- if address == customer.default_address -%}
+              <p class="addresses__default">{{ 'customers.addresses.default' | t }}</p>
+            {%- endif -%}
+          </div>
+
+          <div class="addresses__actions">
+            <details class="addresses__edit">
+              <summary class="addresses__summary">{{ 'customers.addresses.edit' | t }}</summary>
+
+              <div class="account__panel mt-4">
+                {% render 'address-form',
+                  id: address.id,
+                  address: address,
+                  submit_label: submit_label
+                %}
+              </div>
+            </details>
+
+            {% # A plain form rather than a link: deleting is not something a
+               # crawler or a prefetch should be able to do by following a URL. %}
+            <form method="post" action="{{ routes.account_addresses_url }}/{{ address.id }}">
+              <input type="hidden" name="_method" value="delete">
+              <button
+                type="submit"
+                class="addresses__delete"
+                data-confirm="{{ 'customers.addresses.delete_confirm' | t | escape }}"
+              >
+                {{- 'customers.addresses.delete' | t -}}
+              </button>
+            </form>
+          </div>
+        </li>
+      {%- endfor -%}
+    </ul>
+  {%- else -%}
+    <p class="account__note mt-10 text-base leading-snug">{{ 'customers.addresses.none' | t }}</p>
+  {%- endif -%}
+{%- endcapture -%}
+
+{% render 'account-page',
+  settings: section.settings,
+  title: page_title,
+  body: body,
+  width: '44rem'
+%}
+
+{% stylesheet %}
+  .addresses__summary {
+    display: inline-flex;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--account-accent, #0d463d);
+    cursor: pointer;
+    list-style: none;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .addresses__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .addresses__summary:hover,
+  details[open] > .addresses__summary {
+    text-decoration: none;
+  }
+
+  .addresses__new {
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--account-border, rgb(0 0 0 / 12%));
+  }
+
+  .addresses__item + .addresses__item {
+    padding-top: 1.5rem;
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--account-border, rgb(0 0 0 / 12%));
+  }
+
+  .addresses__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 1rem;
+  }
+
+  .addresses__default {
+    padding: 0.25rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--account-accent, #0d463d);
+    border: 1px solid var(--account-accent, #0d463d);
+    border-radius: 999px;
+  }
+
+  .addresses__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-top: 0.75rem;
+  }
+
+  /*
+   * A submit button styled as the link it reads as — the destructive action on
+   * the page shouldn't be the loudest thing on it.
+   */
+  .addresses__delete {
+    padding: 0;
+    font: inherit;
+    font-size: 0.9375rem;
+    line-height: 1.25;
+    color: inherit;
+    cursor: pointer;
+    background: none;
+    border: 0;
+    opacity: 0.75;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .addresses__delete:hover,
+  .addresses__delete:focus-visible {
+    color: var(--account-error, #a5361a);
+    opacity: 1;
+  }
+
+  /*
+   * Closed, "Edit" sits beside "Delete". Opened, the form it holds takes the
+   * whole row and moves above them — a form squeezed into half a line beside a
+   * delete link would be neither.
+   */
+  .addresses__edit {
+    flex: 0 0 auto;
+  }
+
+  .addresses__edit[open] {
+    flex: 1 1 100%;
+    order: -1;
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  // Two jobs, both upgrades on markup that already works: fill the province
+  // select from whichever country is chosen, and confirm a delete before it
+  // happens. With the script absent the country still posts, the province falls
+  // back to the plain text input in the `<noscript>`, and delete goes straight
+  // through — which is the behaviour Shopify has always had.
+  (() => {
+    function fillProvinces(countrySelect) {
+      const scope = countrySelect.closest('[data-address-form]');
+      const wrap = scope && scope.querySelector('[data-province-wrap]');
+      const select = scope && scope.querySelector('[data-province]');
+      if (!wrap || !select) return;
+
+      const option = countrySelect.options[countrySelect.selectedIndex];
+      let provinces = [];
+
+      try {
+        provinces = JSON.parse(option.getAttribute('data-provinces') || '[]');
+      } catch (error) {
+        provinces = [];
+      }
+
+      // A country with no provinces has no question to ask, so the field goes
+      // rather than sitting there empty.
+      wrap.hidden = provinces.length === 0;
+      if (provinces.length === 0) {
+        select.innerHTML = '';
+        return;
+      }
+
+      const chosen = select.dataset.selected || select.value;
+      select.innerHTML = provinces
+        .map(([value, label]) => `<option value="${value}">${label}</option>`)
+        .join('');
+      if (chosen) select.value = chosen;
+    }
+
+    function start(root) {
+      root.querySelectorAll('[data-address-country]').forEach((select) => {
+        fillProvinces(select);
+      });
+    }
+
+    document.addEventListener('change', (event) => {
+      if (event.target.matches && event.target.matches('[data-address-country]')) {
+        // A country the shopper picked themselves shouldn't keep the province
+        // saved against the old one.
+        const scope = event.target.closest('[data-address-form]');
+        const province = scope && scope.querySelector('[data-province]');
+        if (province) delete province.dataset.selected;
+
+        fillProvinces(event.target);
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest && event.target.closest('[data-confirm]');
+      if (!button) return;
+      if (!window.confirm(button.dataset.confirm)) event.preventDefault();
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => start(document));
+    } else {
+      start(document);
+    }
+
+    document.addEventListener('shopify:section:load', (event) => start(event.target));
+  })();
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "t:general.addresses",
+  "settings": [
+    { "type": "header", "content": "t:general.colors" },
+    { "type": "color", "id": "background_color", "label": "t:labels.background_color", "default": "#F9F8F4" },
+    { "type": "color", "id": "text_color", "label": "t:labels.text_color", "default": "#1C2320" },
+    { "type": "color", "id": "panel_background_color", "label": "t:labels.panel_background_color", "default": "#FFFFFF" },
+    { "type": "color", "id": "accent_color", "label": "t:labels.accent_color", "default": "#0D463D" },
+    { "type": "color", "id": "button_background_color", "label": "t:labels.button_background_color", "default": "#0D463D" },
+    { "type": "color", "id": "button_text_color", "label": "t:labels.button_text_color", "default": "#FFFFFF" },
+    { "type": "color", "id": "error_color", "label": "t:labels.error_color", "default": "#A5361A" }
+  ],
+  "disabled_on": { "groups": ["header", "footer"] }
+}
+{% endschema %}

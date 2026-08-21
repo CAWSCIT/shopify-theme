@@ -1,0 +1,90 @@
+{% comment %}
+  This section is used in the customer register template to render the create
+  account page.
+
+  https://shopify.dev/docs/storefronts/themes/architecture/templates/customers-register
+{% endcomment %}
+
+{%- liquid
+  assign label_first_name = 'customers.register.first_name' | t
+  assign label_last_name = 'customers.register.last_name' | t
+  assign label_email = 'customers.register.email' | t
+  assign label_password = 'customers.register.password' | t
+  assign page_title = 'customers.register.title' | t
+-%}
+
+{%- capture body -%}
+  {% form 'create_customer', class: 'mt-8' %}
+    {%- if form.errors -%}
+      <div class="account__errors mb-4">{{ form.errors | default_errors }}</div>
+    {%- endif -%}
+
+    <div class="account__pair">
+      {% render 'account-field',
+        id: 'register-first-name',
+        label: label_first_name,
+        name: 'customer[first_name]',
+        value: form.first_name,
+        autocomplete: 'given-name',
+        autofocus: true
+      %}
+
+      {% render 'account-field',
+        id: 'register-last-name',
+        label: label_last_name,
+        name: 'customer[last_name]',
+        value: form.last_name,
+        autocomplete: 'family-name'
+      %}
+    </div>
+
+    {% render 'account-field',
+      id: 'register-email',
+      label: label_email,
+      name: 'customer[email]',
+      type: 'email',
+      value: form.email,
+      autocomplete: 'email',
+      required: true,
+      classes: 'mt-4'
+    %}
+
+    {% render 'account-field',
+      id: 'register-password',
+      label: label_password,
+      name: 'customer[password]',
+      type: 'password',
+      autocomplete: 'new-password',
+      required: true,
+      classes: 'mt-4'
+    %}
+
+    <button type="submit" class="account__submit account__submit--full mt-6">
+      {{- 'customers.register.submit' | t -}}
+    </button>
+  {% endform %}
+
+  <p class="account__note mt-8 text-base leading-snug">
+    {{- 'customers.register.have_account' | t }}
+    <a class="account__link" href="{{ routes.account_login_url }}">{{ 'customers.register.sign_in' | t }}</a>
+  </p>
+{%- endcapture -%}
+
+{% render 'account-page', settings: section.settings, title: page_title, body: body %}
+
+{% schema %}
+{
+  "name": "t:general.register",
+  "settings": [
+    { "type": "header", "content": "t:general.colors" },
+    { "type": "color", "id": "background_color", "label": "t:labels.background_color", "default": "#F9F8F4" },
+    { "type": "color", "id": "text_color", "label": "t:labels.text_color", "default": "#1C2320" },
+    { "type": "color", "id": "panel_background_color", "label": "t:labels.panel_background_color", "default": "#FFFFFF" },
+    { "type": "color", "id": "accent_color", "label": "t:labels.accent_color", "default": "#0D463D" },
+    { "type": "color", "id": "button_background_color", "label": "t:labels.button_background_color", "default": "#0D463D" },
+    { "type": "color", "id": "button_text_color", "label": "t:labels.button_text_color", "default": "#FFFFFF" },
+    { "type": "color", "id": "error_color", "label": "t:labels.error_color", "default": "#A5361A" }
+  ],
+  "disabled_on": { "groups": ["header", "footer"] }
+}
+{% endschema %}
