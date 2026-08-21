@@ -14,13 +14,33 @@
     "comment_form_title": "Add a comment"
   },
   "cart": {
-    "checkout": "Checkout",
-    "title": "Cart",
-    "update": "Update",
+    "checkout": "Check out",
+    "continue": "Keep shopping",
+    "decrease_quantity_label": "Decrease quantity for {{ title }}",
+    "each_price_html": "{{ price }} ea",
+    "empty": "Your cart is empty.",
+    "empty_action": "Browse the catalog",
+    "heading": "Your cart",
+    "increase_quantity_label": "Increase quantity for {{ title }}",
+    "line_total_label": "Line total",
     "remove": "Remove",
+    "remove_label": "Remove {{ title }}",
+    "shipping": "Shipping",
+    "shipping_at_checkout": "At checkout",
+    "subtotal": "Subtotal",
+    "summary": "Order summary",
+    "title": "Cart",
+    "total": "Total",
+    "update": "Update",
+    "update_error": "That couldn't be updated. Please try again.",
+    "updated_html": "Cart updated. Total {{ total }}.",
     "item_count": {
       "one": "{{ count }} item",
       "other": "{{ count }} items"
+    },
+    "piece_count": {
+      "one": "{{ count }} piece",
+      "other": "{{ count }} pieces"
     }
   },
   "customers": {

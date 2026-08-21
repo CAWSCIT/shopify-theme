@@ -5,33 +5,942 @@
   https://shopify.dev/docs/storefronts/themes/architecture/templates/cart
 {% endcomment %}
 
-<h1>{{ 'cart.title' | t }}</h1>
+{%- liquid
+  assign continue_url = section.settings.continue_url | default: routes.all_products_collection_url
 
-<form action="{{ routes.cart_url }}" method="post">
-  <table>
-    {% for item in cart.items %}
-      <tr>
-        <td>
-          {% render 'image', image: item.image, url: item.url %}
-        </td>
-        <td>
-          <p>{{ item.product.title }}</p>
-          {{ 'cart.remove' | t | link_to: item.url_to_remove }}
-        </td>
-        <td>
-          <input type="text" name="updates[]" value="{{ item.quantity }}">
-          <input type="submit" value="{{ 'cart.update' | t }}">
-        </td>
-      </tr>
-    {% endfor %}
-  </table>
+  # `cart.item_count` counts pieces, not lines — a cart holding 100 keytags is
+  # one item and a hundred pieces, and a group ordering literature wants both
+  # numbers. `cart.items.size` is the line count.
+  assign line_count = cart.items.size
 
-  <input type="submit" name="checkout" value="{{ 'cart.checkout' | t }}">
-</form>
+  # The thumbnail is a fixed square at every breakpoint, so `sizes` is just that
+  # square. Built up here because a filter argument can't itself be filtered.
+  assign media_sizes = section.settings.media_size | append: 'px'
+-%}
+
+<section
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  data-cart-section
+  data-section-id="{{ section.id }}"
+  data-change-url="{{ routes.cart_change_url }}"
+  data-error-message="{{ 'cart.update_error' | t | escape }}"
+  data-updated-label="{{ 'cart.updated_html' | t: total: '[[total]]' | escape }}"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --cart-accent: {{ section.settings.accent_color }};
+    --cart-panel-bg: {{ section.settings.panel_background_color }};
+    --cart-border: {{ section.settings.text_color | color_modify: 'alpha', 0.12 }};
+    --cart-input-border: {{ section.settings.text_color | color_modify: 'alpha', 0.25 }};
+    --cart-step-hover: {{ section.settings.text_color | color_modify: 'alpha', 0.06 }};
+    --cart-error: {{ section.settings.error_color }};
+    --cart-button-bg: {{ section.settings.button_background_color }};
+    --cart-button-text: {{ section.settings.button_text_color }};
+    --cart-media-bg: {{ section.settings.media_background_color }};
+    --cart-media-size: {{ section.settings.media_size }}px;
+    --cart-media-fit: {{ section.settings.media_fit }};
+  "
+>
+  {% # Sits outside the block the script replaces, so it's already in the
+     # accessibility tree when the new total is written into it. A live region
+     # created by the same update that fills it announces nothing.
+     #
+     # A `div` rather than a `p`: the reset hides an empty paragraph, and a
+     # hidden live region is no better than one that doesn't exist yet. %}
+  <div class="sr-only" role="status" data-cart-announce></div>
+
+  <div class="mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] py-8 lg:py-12" data-cart-root>
+    <div class="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
+      <div class="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
+        {% # Focusable only from the script, which moves focus here when the row
+           # a shopper was working in is the one they just removed. %}
+        <h1 class="font-serif text-4xl leading-tight font-light lg:text-5xl" data-cart-heading tabindex="-1">
+          {{- 'cart.heading' | t -}}
+        </h1>
+
+        {%- if cart.item_count > 0 -%}
+          <p class="cart__muted text-sm leading-snug">
+            {{- 'cart.item_count' | t: count: line_count -}}
+
+            {%- if section.settings.show_piece_count -%}
+              <span aria-hidden="true"> · </span>
+              {{- 'cart.piece_count' | t: count: cart.item_count -}}
+            {%- endif -%}
+          </p>
+        {%- endif -%}
+      </div>
+
+      <a class="cart__continue text-base leading-snug font-medium" href="{{ continue_url }}">
+        {{- 'cart.continue' | t -}}
+      </a>
+    </div>
+
+    {%- if cart.item_count > 0 -%}
+      {% form 'cart', cart, class: 'mt-6 grid items-start gap-8 lg:mt-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12' %}
+        <div class="min-w-0">
+          <ul role="list" class="cart__lines list-none pl-0">
+            {%- for item in cart.items -%}
+              {%- liquid
+                # A filter argument can't itself be filtered, so the figure the
+                # "each" string interpolates is built before it's handed over.
+                assign unit_price = item.final_price | money
+              -%}
+
+              <li class="cart__line" data-line-key="{{ item.key }}">
+                {% # The title beside it already links to the same place, so this
+                   # is hidden from assistive technology rather than read out a
+                   # second time. %}
+                <a class="cart__media" href="{{ item.url }}" tabindex="-1" aria-hidden="true">
+                  {%- if item.image != blank -%}
+                    {{
+                      item.image
+                      | image_url: width: 320
+                      | image_tag:
+                        widths: '80, 100, 120, 160, 200, 240, 320',
+                        sizes: media_sizes,
+                        loading: 'lazy',
+                        class: 'cart__image'
+                    }}
+                  {%- else -%}
+                    {{ 'product-1' | placeholder_svg_tag: 'cart__image' }}
+                  {%- endif -%}
+                </a>
+
+                <div class="cart__info">
+                  <a class="cart__title text-base leading-snug font-semibold" href="{{ item.url }}">
+                    {{- item.product.title -}}
+                  </a>
+
+                  {%- unless item.product.has_only_default_variant -%}
+                    <p class="cart__muted text-sm leading-snug">{{ item.variant.title }}</p>
+                  {%- endunless -%}
+
+                  {%- if item.selling_plan_allocation != blank -%}
+                    <p class="cart__muted text-sm leading-snug">
+                      {{- item.selling_plan_allocation.selling_plan.name -}}
+                    </p>
+                  {%- endif -%}
+
+                  {% # Properties starting with an underscore are the app's own
+                     # bookkeeping and aren't meant to be shown. %}
+                  {%- for property in item.properties -%}
+                    {%- liquid
+                      assign first_character = property.first | slice: 0
+                      if first_character == '_'
+                        continue
+                      endif
+                      if property.last == blank
+                        continue
+                      endif
+                    -%}
+
+                    <p class="cart__muted text-sm leading-snug">
+                      {{ property.first }}: {{ property.last }}
+                    </p>
+                  {%- endfor -%}
+
+                  {%- for allocation in item.line_level_discount_allocations -%}
+                    <p class="cart__discount text-sm leading-snug">
+                      {{ allocation.discount_application.title }}
+                      <span class="font-price">(−{{ allocation.amount | money }})</span>
+                    </p>
+                  {%- endfor -%}
+
+                  <a
+                    class="cart__remove text-sm leading-snug"
+                    href="{{ item.url_to_remove }}"
+                    data-remove
+                    aria-label="{{ 'cart.remove_label' | t: title: item.title | escape }}"
+                  >
+                    {{- 'cart.remove' | t -}}
+                  </a>
+                </div>
+
+                {%- if section.settings.show_unit_price -%}
+                  <p class="cart__unit cart__muted font-price text-base leading-snug">
+                    {%- if item.original_price > item.final_price -%}
+                      <s class="cart__unit-compare">
+                        <span class="sr-only">{{ 'products.price.regular_price' | t }}</span>
+                        {{- item.original_price | money -}}
+                      </s>
+                      {{ ' ' }}
+                    {%- endif -%}
+
+                    {{ 'cart.each_price_html' | t: price: unit_price }}
+                  </p>
+                {%- endif -%}
+
+                <div class="cart__quantity">
+                  {% # The stepper stops at one so a stray click can't quietly
+                     # delete a line. Typing 0, or the Remove link above, is the
+                     # deliberate way out. %}
+                  <button
+                    type="button"
+                    class="cart__step"
+                    data-step="-1"
+                    aria-label="{{ 'cart.decrease_quantity_label' | t: title: item.title | escape }}"
+                    {% if item.quantity <= 1 %}
+                      disabled
+                    {% endif %}
+                  >
+                    −
+                  </button>
+
+                  {% # `updates[]` is what the form posts with JavaScript off,
+                     # and what carries a typed-but-not-yet-sent quantity
+                     # through to checkout. It's positional, so the order of
+                     # these fields has to match the order of the lines. %}
+                  <input
+                    type="number"
+                    class="cart__quantity-input"
+                    name="updates[]"
+                    value="{{ item.quantity }}"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    aria-label="{{ 'products.quantity_label' | t: title: item.title | escape }}"
+                    data-quantity-input
+                  >
+
+                  <button
+                    type="button"
+                    class="cart__step"
+                    data-step="1"
+                    aria-label="{{ 'cart.increase_quantity_label' | t: title: item.title | escape }}"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <p class="cart__total font-price text-xl leading-none font-light">
+                  <span class="sr-only">{{ 'cart.line_total_label' | t }}</span>
+
+                  {%- if item.original_line_price > item.final_line_price -%}
+                    <s class="cart__line-compare text-sm">
+                      <span class="sr-only">{{ 'products.price.regular_price' | t }}</span>
+                      {{- item.original_line_price | money -}}
+                    </s>
+                  {%- endif -%}
+
+                  <span>{{ item.final_line_price | money }}</span>
+                </p>
+
+                {% # Empty, so the reset's `p:empty` rule keeps it out of the
+                   # grid until the script has something to put in it. %}
+                <p class="cart__error text-sm leading-snug" role="status" data-line-error></p>
+              </li>
+            {%- endfor -%}
+          </ul>
+
+          {% # Only reached when the line the message belongs to has gone — a
+             # quantity refused for a line that was removed in the meantime. %}
+          <p class="cart__error text-sm leading-snug" role="status" data-cart-error></p>
+
+          {% # Rendered only with JavaScript off, where the steppers above can't
+             # do anything. The quantity fields are ordinary form inputs, so
+             # typing into them and pressing this updates the cart the way it
+             # always did. %}
+          <noscript>
+            <style>
+              .cart__step {
+                display: none;
+              }
+            </style>
+
+            <button type="submit" name="update" class="cart__update">{{ 'cart.update' | t }}</button>
+          </noscript>
+        </div>
+
+        <aside class="cart__summary" aria-labelledby="{{ section.id }}-summary">
+          <h2 class="sr-only" id="{{ section.id }}-summary">{{ 'cart.summary' | t }}</h2>
+
+          <dl class="cart__totals">
+            <div class="cart__total-row">
+              <dt>{{ 'cart.subtotal' | t }}</dt>
+              <dd class="font-price font-semibold">{{ cart.items_subtotal_price | money }}</dd>
+            </div>
+
+            {%- for discount in cart.cart_level_discount_applications -%}
+              <div class="cart__total-row cart__discount">
+                <dt>{{ discount.title }}</dt>
+                <dd class="font-price">−{{ discount.total_allocated_amount | money }}</dd>
+              </div>
+            {%- endfor -%}
+
+            <div class="cart__total-row">
+              <dt>{{ 'cart.shipping' | t }}</dt>
+              <dd class="cart__muted">{{ 'cart.shipping_at_checkout' | t }}</dd>
+            </div>
+
+            <div class="cart__total-row cart__total-row--grand">
+              <dt class="font-medium">{{ 'cart.total' | t }}</dt>
+              <dd class="font-price text-3xl leading-none font-light" data-cart-total>
+                {{- cart.total_price | money -}}
+              </dd>
+            </div>
+          </dl>
+
+          <button type="submit" name="checkout" class="cart__checkout">{{ 'cart.checkout' | t }}</button>
+        </aside>
+      {% endform %}
+    {%- else -%}
+      <div class="cart__empty mt-8">
+        <p class="text-lg leading-snug">{{ 'cart.empty' | t }}</p>
+
+        <a class="cart__empty-link mt-4" href="{{ continue_url }}">{{ 'cart.empty_action' | t }}</a>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  .cart__muted {
+    opacity: 0.65;
+  }
+
+  .cart__continue {
+    color: var(--cart-accent, #0d463d);
+    text-decoration: none;
+  }
+
+  .cart__continue:hover,
+  .cart__continue:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /*
+   * Every line is separated the same way, including the last — the rule under
+   * the final row is what closes the list off against the summary beside it.
+   */
+  .cart__line {
+    display: grid;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--cart-border, rgb(0 0 0 / 12%));
+    grid-template-areas:
+      'media info info'
+      'media unit unit'
+      'quantity quantity total';
+    grid-template-columns: var(--cart-media-size, 72px) minmax(0, 1fr) auto;
+  }
+
+  /*
+   * The media column is the width of the thumbnail rather than `auto`, so the
+   * stepper below it — which is wider — can't push the details away from the
+   * image. It spans into the second column instead.
+   *
+   * One row from `md` up: thumbnail, details, unit price, stepper, line total.
+   * The three trailing columns are sized by their contents so the details keep
+   * whatever is left.
+   */
+  @media screen and (min-width: 48rem) {
+    .cart__line {
+      gap: 1rem 1.5rem;
+      grid-template-areas: 'media info unit quantity total';
+      grid-template-columns: var(--cart-media-size, 72px) minmax(0, 1fr) auto auto auto;
+    }
+  }
+
+  .cart__media {
+    display: block;
+    width: var(--cart-media-size, 72px);
+    overflow: hidden;
+    background-color: var(--cart-media-bg, #ffffff);
+    border-radius: 2px;
+    grid-area: media;
+  }
+
+  /*
+   * Unlayered, so this beats the `height: auto` that `critical.css` sets on
+   * every image from `@layer reset`.
+   */
+  .cart__image {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1;
+    object-fit: var(--cart-media-fit, cover);
+  }
+
+  .cart__info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    min-width: 0;
+    grid-area: info;
+  }
+
+  .cart__title {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .cart__title:hover,
+  .cart__title:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /*
+   * Underlined at rest rather than on hover: it's the one destructive control
+   * on the row, so it reads as a link before it's pointed at.
+   */
+  .cart__remove {
+    color: inherit;
+    opacity: 0.75;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .cart__remove:hover,
+  .cart__remove:focus-visible {
+    opacity: 1;
+  }
+
+  .cart__discount {
+    color: var(--cart-accent, #0d463d);
+  }
+
+  .cart__unit {
+    grid-area: unit;
+  }
+
+  .cart__unit-compare {
+    opacity: 0.75;
+  }
+
+  .cart__quantity {
+    display: flex;
+    align-items: stretch;
+    justify-self: start;
+    background-color: var(--cart-panel-bg, #ffffff);
+    border: 1px solid var(--cart-input-border, rgb(0 0 0 / 25%));
+    border-radius: var(--style-border-radius-inputs, 2px);
+    grid-area: quantity;
+  }
+
+  .cart__step {
+    width: 2.25rem;
+    font: inherit;
+    font-size: 1.125rem;
+    line-height: 1;
+    color: inherit;
+    cursor: pointer;
+    background-color: transparent;
+    border: 0;
+  }
+
+  .cart__step:hover:not(:disabled) {
+    background-color: var(--cart-step-hover, rgb(0 0 0 / 6%));
+  }
+
+  .cart__step:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
+  /*
+   * The spinner is replaced by the two buttons either side, and it would
+   * otherwise sit on top of the `+`.
+   */
+  .cart__quantity-input {
+    width: 3.25rem;
+    padding: 0.625rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: inherit;
+    text-align: center;
+    appearance: textfield;
+    background-color: transparent;
+    border: 0;
+  }
+
+  .cart__quantity-input::-webkit-outer-spin-button,
+  .cart__quantity-input::-webkit-inner-spin-button {
+    margin: 0;
+    appearance: none;
+  }
+
+  .cart__total {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    grid-area: total;
+    justify-self: end;
+  }
+
+  .cart__line-compare {
+    opacity: 0.6;
+  }
+
+  /*
+   * Deliberately left out of the grid areas above. It's empty until something
+   * goes wrong, and `p:empty` in the reset then keeps it from taking a row —
+   * a named area would hold the gap open on every line.
+   */
+  .cart__error {
+    grid-column: 1 / -1;
+    color: var(--cart-error, #a5361a);
+  }
+
+  .cart__update {
+    padding: 0.75rem 1.25rem;
+    margin-top: 1.25rem;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    background-color: transparent;
+    border: 1px solid var(--cart-input-border, rgb(0 0 0 / 25%));
+    border-radius: var(--style-border-radius-inputs, 2px);
+  }
+
+  /*
+   * The transition delay is the point: an update that lands inside it never
+   * dims, so the summary only fades when a request is actually taking a moment.
+   */
+  .cart__summary {
+    padding: 1.5rem;
+    background-color: var(--cart-panel-bg, #ffffff);
+    border: 1px solid var(--cart-border, rgb(0 0 0 / 12%));
+    border-radius: 2px;
+    transition: opacity 150ms ease 250ms;
+  }
+
+  /*
+   * Stays in view beside a long list. `align-items: start` on the form grid is
+   * what leaves it room to move.
+   */
+  @media screen and (min-width: 64rem) {
+    .cart__summary {
+      position: sticky;
+      top: 1.5rem;
+    }
+  }
+
+  .cart__totals {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  .cart__total-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .cart__total-row > dd {
+    margin: 0;
+    text-align: right;
+  }
+
+  .cart__total-row--grand {
+    padding-top: 1rem;
+    margin-top: 0.75rem;
+    border-top: 1px solid var(--cart-border, rgb(0 0 0 / 12%));
+  }
+
+  /*
+   * Filled, and the only filled thing on the page — there's one decision to
+   * make here and this is it.
+   */
+  .cart__checkout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    margin-top: 1.25rem;
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--cart-button-text, #ffffff);
+    text-align: center;
+    cursor: pointer;
+    background-color: var(--cart-button-bg, #c0431b);
+    border: 0;
+    border-radius: var(--style-border-radius-inputs, 2px);
+    transition: opacity 150ms ease;
+  }
+
+  .cart__checkout:hover,
+  .cart__checkout:focus-visible {
+    opacity: 0.88;
+  }
+
+  [data-cart-section][data-busy] .cart__summary {
+    opacity: 0.55;
+  }
+
+  .cart__empty-link {
+    display: inline-flex;
+    padding: 0.75rem 1.25rem;
+    color: inherit;
+    text-decoration: none;
+    border: 1px solid var(--cart-input-border, rgb(0 0 0 / 25%));
+    border-radius: var(--style-border-radius-inputs, 2px);
+  }
+
+  .cart__empty-link:hover,
+  .cart__empty-link:focus-visible {
+    background-color: var(--cart-step-hover, rgb(0 0 0 / 6%));
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  // Applies the steppers and the remove links to the cart as they're used, and
+  // re-renders this section from the reply so every figure on the page — line
+  // totals, the subtotal, the total, the header's cart count — comes from the
+  // cart itself rather than being worked out twice.
+  //
+  // Everything here is an upgrade on markup that already works: the quantity
+  // fields are `updates[]` inputs in a plain POST to /cart, and the remove
+  // links are ordinary links to /cart/change. With the script absent the page
+  // reloads the way it always did.
+  //
+  // One set of delegated listeners covers the whole page, so the markup this
+  // swaps in needs nothing bound to it afterwards.
+  (() => {
+    // Long enough to collect a run of clicks on the same `+` into one request,
+    // short enough that a single click still feels answered.
+    const UPDATE_DELAY = 250;
+
+    const TOTAL_PLACEHOLDER = '[[total]]';
+
+    // Cart writes are serialised: two updates in flight at once can come back
+    // out of order and leave the page showing a quantity the cart doesn't hold.
+    let queue = Promise.resolve();
+
+    // Line key -> pending timeout. Also read as "is the shopper still clicking",
+    // which is what suppresses a re-render that's about to be superseded.
+    const timers = new Map();
+
+    function setCartCount(count) {
+      document.querySelectorAll('[data-cart-count]').forEach((element) => {
+        element.textContent = count;
+      });
+    }
+
+    // Focus is recorded as a description rather than a reference: the element
+    // holding it is gone once the markup is replaced.
+    function focusDescriptor(section) {
+      const active = document.activeElement;
+      if (!active || !section.contains(active)) return null;
+
+      const line = active.closest('[data-line-key]');
+      if (!line) return null;
+
+      let selector = null;
+      if (active.dataset.step) {
+        selector = `[data-step="${active.dataset.step}"]`;
+      } else if (active.hasAttribute('data-quantity-input')) {
+        selector = '[data-quantity-input]';
+      } else if (active.hasAttribute('data-remove')) {
+        selector = '[data-remove]';
+      }
+
+      return selector ? { key: line.dataset.lineKey, selector } : null;
+    }
+
+    function restoreFocus(section, descriptor) {
+      if (!descriptor) return;
+
+      const line = section.querySelector(`[data-line-key="${descriptor.key}"]`);
+      const target = line && line.querySelector(descriptor.selector);
+
+      if (target && !target.disabled) {
+        target.focus();
+        return;
+      }
+
+      // The row is gone — removed, or emptied down to nothing. Focus lands on
+      // the heading so a keyboard shopper isn't dropped back at the top of the
+      // document with no idea what happened.
+      const heading = section.querySelector('[data-cart-heading]');
+      if (heading) heading.focus();
+    }
+
+    function render(section, html) {
+      const root = section.querySelector('[data-cart-root]');
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      const fresh = parsed.querySelector('[data-cart-root]');
+      if (!root || !fresh) return;
+
+      const descriptor = focusDescriptor(section);
+      root.innerHTML = fresh.innerHTML;
+      restoreFocus(section, descriptor);
+
+      const announce = section.querySelector('[data-cart-announce]');
+      const total = section.querySelector('[data-cart-total]');
+      if (announce && total && section.dataset.updatedLabel) {
+        announce.textContent = section.dataset.updatedLabel.replace(
+          TOTAL_PLACEHOLDER,
+          total.textContent.trim()
+        );
+      }
+    }
+
+    function showError(section, key, message) {
+      const line = section.querySelector(`[data-line-key="${key}"]`);
+      const target =
+        (line && line.querySelector('[data-line-error]')) || section.querySelector('[data-cart-error]');
+
+      if (target) target.textContent = message;
+
+      // The visible message starts out empty, and an empty paragraph is hidden,
+      // so the announcement has to come from the region that's always there.
+      const announce = section.querySelector('[data-cart-announce]');
+      if (announce) announce.textContent = message;
+    }
+
+    // Used when the cart refused an update: it's unchanged, so the page has to
+    // be put back to what it actually holds before the reason is shown.
+    async function refresh(section) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('section_id', section.dataset.sectionId);
+
+      const response = await fetch(url, { headers: { Accept: 'text/html' } });
+      if (!response.ok) return;
+
+      render(section, await response.text());
+    }
+
+    async function change(section, key, quantity) {
+      const sectionId = section.dataset.sectionId;
+      section.setAttribute('data-busy', '');
+
+      try {
+        // `id` is the line item key rather than a line number: keys survive
+        // other lines being removed while this update is queued behind them.
+        const response = await fetch(`${section.dataset.changeUrl}.js`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            id: key,
+            quantity,
+            sections: sectionId,
+            sections_url: window.location.pathname,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          // Shopify explains the refusal in `description` — most often that the
+          // quantity asked for is more than the stock left.
+          await refresh(section);
+          showError(section, key, result.description || result.message || section.dataset.errorMessage);
+          return;
+        }
+
+        setCartCount(result.item_count);
+
+        // Another click is already waiting, and its reply will carry newer
+        // markup than this one. Rendering both would bounce the number the
+        // shopper is looking at back to where it just came from.
+        if (timers.size > 0) return;
+
+        const html = result.sections && result.sections[sectionId];
+        if (html) render(section, html);
+      } catch (error) {
+        showError(section, key, section.dataset.errorMessage);
+      } finally {
+        section.removeAttribute('data-busy');
+      }
+    }
+
+    function schedule(section, key, quantity) {
+      window.clearTimeout(timers.get(key));
+
+      timers.set(
+        key,
+        window.setTimeout(() => {
+          timers.delete(key);
+          queue = queue.then(() => change(section, key, quantity));
+        }, UPDATE_DELAY)
+      );
+    }
+
+    function quantityOf(field) {
+      // `min` stops the spinner going below zero, but the field can still be
+      // cleared or typed into, so the floor is applied again here.
+      return Math.max(0, Math.floor(Number(field.value) || 0));
+    }
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest) return;
+
+      const control = event.target.closest('[data-step], [data-remove]');
+      if (!control) return;
+
+      const section = control.closest('[data-cart-section]');
+      const line = control.closest('[data-line-key]');
+      if (!section || !line) return;
+
+      const key = line.dataset.lineKey;
+
+      if (control.hasAttribute('data-remove')) {
+        // The href is a real link to /cart/change that works without this
+        // script. With it, the row goes without the page moving.
+        event.preventDefault();
+
+        // Any quantity still waiting on this line is moot now.
+        window.clearTimeout(timers.get(key));
+        timers.delete(key);
+
+        queue = queue.then(() => change(section, key, 0));
+        return;
+      }
+
+      const field = line.querySelector('[data-quantity-input]');
+      if (!field) return;
+
+      // The stepper floors at one: removing a line is what the Remove link is
+      // for, and a click that quietly deletes one isn't recoverable.
+      const quantity = Math.max(1, quantityOf(field) + Number(control.dataset.step));
+
+      // Written straight into the field so the number moves under the click.
+      // The totals follow when the cart replies.
+      field.value = quantity;
+      line.querySelectorAll('[data-step="-1"]').forEach((button) => {
+        button.disabled = quantity <= 1;
+      });
+
+      schedule(section, key, quantity);
+    });
+
+    // Typed quantities, including the 0 that empties a line — deliberate in a
+    // way that clicking `−` one time too many isn't.
+    document.addEventListener('change', (event) => {
+      const field = event.target;
+      if (!field.matches || !field.matches('[data-quantity-input]')) return;
+
+      const section = field.closest('[data-cart-section]');
+      const line = field.closest('[data-line-key]');
+      if (!section || !line) return;
+
+      const quantity = quantityOf(field);
+      field.value = quantity;
+
+      schedule(section, line.dataset.lineKey, quantity);
+    });
+  })();
+{% endjavascript %}
 
 {% schema %}
 {
   "name": "t:general.cart",
-  "settings": []
+  "settings": [
+    {
+      "type": "url",
+      "id": "continue_url",
+      "label": "t:labels.continue_url",
+      "info": "t:info.continue_url"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_piece_count",
+      "label": "t:labels.show_piece_count",
+      "info": "t:info.show_piece_count",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_unit_price",
+      "label": "t:labels.show_unit_price",
+      "info": "t:info.show_unit_price",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:general.media"
+    },
+    {
+      "type": "range",
+      "id": "media_size",
+      "label": "t:labels.media_size",
+      "info": "t:info.cart_media_size",
+      "min": 56,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "select",
+      "id": "media_fit",
+      "label": "t:labels.media_fit",
+      "info": "t:info.media_fit",
+      "default": "cover",
+      "options": [
+        { "value": "cover", "label": "t:options.media_fit.cover" },
+        { "value": "contain", "label": "t:options.media_fit.contain" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "t:labels.accent_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "panel_background_color",
+      "label": "t:labels.panel_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "media_background_color",
+      "label": "t:labels.media_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "button_background_color",
+      "label": "t:labels.button_background_color",
+      "default": "#C0431B"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "t:labels.button_text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "error_color",
+      "label": "t:labels.error_color",
+      "default": "#A5361A"
+    }
+  ],
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  }
 }
 {% endschema %}
