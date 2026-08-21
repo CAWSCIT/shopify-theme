@@ -1,0 +1,137 @@
+{% doc %}
+  Renders one expandable panel of product detail — a heading with a plus sign
+  that opens onto a block of rich text. Shipping, bulk ordering and anything
+  else that would crowd the buy button if it were always on screen.
+
+  Built on `<details>` so the panel opens with JavaScript off, and the keyboard
+  and screen reader behaviour comes for free.
+
+  Colours are read from custom properties so the whole stack can be themed from
+  the section around it: `--product-border`, `--product-accent`. Both have
+  fallbacks, so the panel also stands on its own.
+
+  @example
+  {% content_for 'block', type: 'product-detail', id: 'shipping' %}
+{% enddoc %}
+
+<details class="product-detail" {{ block.shopify_attributes }}>
+  <summary class="product-detail__summary">
+    <span class="text-base leading-snug font-semibold">{{ block.settings.heading }}</span>
+    <span class="product-detail__icon" aria-hidden="true"></span>
+  </summary>
+
+  {%- if block.settings.content != blank -%}
+    <div class="product-detail__panel text-base leading-relaxed">{{ block.settings.content }}</div>
+  {%- endif -%}
+</details>
+
+{% stylesheet %}
+  /*
+   * Hairlines between the panels rather than a box around each: stacked under
+   * the buy button, a column of cards would read as more things to decide.
+   */
+  .product-detail {
+    border-top: 1px solid var(--product-border, rgb(0 0 0 / 12%));
+  }
+
+  .product-detail:last-child {
+    border-bottom: 1px solid var(--product-border, rgb(0 0 0 / 12%));
+  }
+
+  /*
+   * The whole row is the toggle, so the default disclosure triangle would be a
+   * second affordance next to the plus sign.
+   */
+  .product-detail__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.125rem 0;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .product-detail__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .product-detail__summary:hover,
+  .product-detail__summary:focus-visible {
+    color: var(--product-accent, #0d463d);
+  }
+
+  /* Two bars crossed; the upright one drops away to leave a minus when open. */
+  .product-detail__icon {
+    position: relative;
+    flex: 0 0 auto;
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .product-detail__icon::before,
+  .product-detail__icon::after {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: 1.5px;
+    background-color: currentcolor;
+    content: '';
+    transform: translateY(-50%);
+  }
+
+  .product-detail__icon::after {
+    transition: opacity 150ms ease;
+    transform: translateY(-50%) rotate(90deg);
+  }
+
+  .product-detail[open] .product-detail__icon::after {
+    opacity: 0;
+  }
+
+  .product-detail__panel {
+    padding-bottom: 1.125rem;
+    opacity: 0.85;
+  }
+
+  .product-detail__panel :is(p, ul, ol) + :is(p, ul, ol) {
+    margin-top: 0.75rem;
+  }
+
+  /*
+   * Links come out of the rich text setting as bare `<a>` tags, so they can't
+   * carry utility classes — they're styled from here instead.
+   */
+  .product-detail__panel a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .product-detail__panel a:hover,
+  .product-detail__panel a:focus-visible {
+    text-decoration: none;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:general.product_detail",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:labels.heading",
+      "default": "Shipping and delivery"
+    },
+    {
+      "type": "richtext",
+      "id": "content",
+      "label": "t:labels.content",
+      "default": "<p>Orders ship within two business days.</p>"
+    }
+  ],
+  "presets": [{ "name": "t:general.product_detail" }]
+}
+{% endschema %}

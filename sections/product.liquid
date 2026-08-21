@@ -1,50 +1,1087 @@
 {% comment %}
-  This section is used in the product template to render product page with
-  media, content, and add-to-cart form.
+  This section is used in the product template to render the product page —
+  the media gallery, the purchase form, and the detail panels beneath it.
 
   https://shopify.dev/docs/storefronts/themes/architecture/templates/product
 {% endcomment %}
 
-<div class="product-images">
-  {% for image in product.images %}
-    {% render 'image', class: 'product-image', image: image %}
-  {% endfor %}
-</div>
+{%- liquid
+  assign current_variant = product.selected_or_first_available_variant
 
-<div class="product-info">
-  <h1>{{ product.title }}</h1>
-  <p class="font-price">{{ product.price | money }}</p>
-  <p>{{ product.description }}</p>
-</div>
+  # Shopify only sets `collection` on /collections/x/products/y URLs, so landing
+  # straight on the product falls back to whichever collection it lists first.
+  assign breadcrumb_collection = collection
+  if breadcrumb_collection == blank
+    assign breadcrumb_collection = product.collections.first
+  endif
 
-<div class="product-form">
-  {% form 'product', product %}
-    {% assign current_variant = product.selected_or_first_available_variant %}
+  assign eyebrow = ''
+  case section.settings.eyebrow_source
+    when 'product_type'
+      assign eyebrow = product.type
+    when 'vendor'
+      assign eyebrow = product.vendor
+    when 'collection'
+      assign eyebrow = breadcrumb_collection.title
+  endcase
 
-    <select name="id">
-      {% for variant in product.variants %}
-        <option
-          value="{{ variant.id }}"
-          {% if variant == current_variant %}
-            selected="selected"
-          {% endif %}
-        >
-          {{ variant.title }} - {{ variant.price | money }}
-        </option>
-      {% endfor %}
-    </select>
+  assign quantity = section.settings.default_quantity | at_least: 1
 
-    <input type="text" name="quantity" min="1" value="1">
+  # Worked out here rather than in the script below so the button already reads
+  # the right total on first paint — and still does with JavaScript off.
+  assign initial_total = current_variant.price | times: quantity | money
 
-    <input type="submit" value="Add to cart">
-    {{ form | payment_button }}
-  {% endform %}
-</div>
+  # `back` returns the shopper to this page after adding. Going to the cart is
+  # the default here: unlike the collection list, a product page is somewhere
+  # you arrive to buy one thing.
+  assign return_to = ''
+  if section.settings.after_add == 'stay'
+    assign return_to = 'back'
+  endif
+
+  # `compare_at_price` is left set after a sale ends, so it only means "on sale"
+  # while it's still above the current price.
+  assign on_sale = false
+  if current_variant.compare_at_price > current_variant.price
+    assign on_sale = true
+  endif
+
+  # The gallery is roughly half the page from `lg` up, and all of it below.
+  assign media_sizes = '(min-width: 64rem) 45vw, 100vw'
+-%}
+
+<section
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  data-product-section
+  data-money-format="{{ shop.money_format | escape }}"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --product-accent: {{ section.settings.accent_color }};
+    --product-panel-bg: {{ section.settings.panel_background_color }};
+    --product-border: {{ section.settings.text_color | color_modify: 'alpha', 0.12 }};
+    --product-input-border: {{ section.settings.text_color | color_modify: 'alpha', 0.28 }};
+    --product-button-bg: {{ section.settings.button_background_color }};
+    --product-button-text: {{ section.settings.button_text_color }};
+    --product-media-aspect: {{ section.settings.media_aspect_ratio }};
+    --product-media-fit: {{ section.settings.media_fit }};
+  "
+>
+  <div class="mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] py-6 lg:py-10">
+    {%- if section.settings.show_breadcrumb -%}
+      <nav aria-label="{{ 'general.breadcrumb.label' | t }}">
+        <ol role="list" class="product__breadcrumb flex list-none flex-wrap items-center gap-2 pl-0 text-sm leading-snug">
+          <li>
+            <a class="product__breadcrumb-link" href="{{ routes.root_url }}">{{ 'general.breadcrumb.home' | t }}</a>
+          </li>
+
+          {%- if breadcrumb_collection != blank -%}
+            <li aria-hidden="true">/</li>
+            <li>
+              <a class="product__breadcrumb-link" href="{{ breadcrumb_collection.url }}">
+                {{- breadcrumb_collection.title -}}
+              </a>
+            </li>
+          {%- endif -%}
+
+          <li aria-hidden="true">/</li>
+          <li aria-current="page">{{ product.title }}</li>
+        </ol>
+      </nav>
+    {%- endif -%}
+
+    <div class="mt-4 grid gap-8 lg:mt-6 lg:grid-cols-2 lg:gap-12">
+      <div class="product__gallery">
+        {%- if product.media.size > 0 -%}
+          {% # A scroll-snap track rather than a swap-one-image-out viewer: the
+             # gallery is then swipeable on a phone, and every image is still
+             # reachable with the thumbnail links when the script never runs. %}
+          <div
+            class="product__viewer"
+            data-viewer
+            role="group"
+            aria-label="{{ 'products.gallery' | t }}"
+            tabindex="0"
+          >
+            {%- for media in product.media -%}
+              <div class="product__slide" id="{{ section.id }}-media-{{ media.id }}" data-slide data-media-id="{{ media.id }}">
+                {%- liquid
+                  assign media_loading = 'lazy'
+                  if forloop.first
+                    assign media_loading = 'eager'
+                  endif
+                -%}
+
+                {%- case media.media_type -%}
+                  {%- when 'image' -%}
+                    {{
+                      media.preview_image
+                      | image_url: width: 1400
+                      | image_tag:
+                        widths: '400, 600, 800, 1000, 1400',
+                        sizes: media_sizes,
+                        loading: media_loading,
+                        class: 'product__image',
+                        alt: media.alt
+                    }}
+                  {%- else -%}
+                    {{ media | media_tag: image_size: '1400x', class: 'product__image' }}
+                {%- endcase -%}
+              </div>
+            {%- endfor -%}
+          </div>
+
+          {%- if product.media.size > 1 -%}
+            <ul role="list" class="product__thumbs mt-3 list-none pl-0">
+              {%- for media in product.media -%}
+                <li>
+                  <a
+                    class="product__thumb {% if forloop.first %}product__thumb--active{% endif %}"
+                    href="#{{ section.id }}-media-{{ media.id }}"
+                    data-thumb
+                    data-media-id="{{ media.id }}"
+                    aria-label="{{ 'products.show_image' | t: index: forloop.index }}"
+                    {% if forloop.first %}
+                      aria-current="true"
+                    {% endif %}
+                  >
+                    {{
+                      media.preview_image
+                      | image_url: width: 320
+                      | image_tag:
+                        widths: '80, 120, 160, 240, 320',
+                        sizes: '(min-width: 64rem) 120px, 22vw',
+                        loading: 'lazy',
+                        class: 'product__thumb-image',
+                        alt: media.alt
+                    }}
+                  </a>
+                </li>
+              {%- endfor -%}
+            </ul>
+          {%- endif -%}
+        {%- else -%}
+          <div class="product__viewer">
+            <div class="product__slide">
+              {{ 'product-1' | placeholder_svg_tag: 'product__image' }}
+            </div>
+          </div>
+        {%- endif -%}
+      </div>
+
+      <div class="product__info">
+        {%- if eyebrow != blank -%}
+          <p class="product__eyebrow text-xs leading-snug font-semibold tracking-[0.1em] uppercase">{{ eyebrow }}</p>
+        {%- endif -%}
+
+        <h1 class="mt-2 font-serif text-4xl leading-tight font-normal lg:text-5xl">{{ product.title }}</h1>
+
+        <p class="mt-3 flex flex-wrap items-baseline gap-x-3">
+          {%- if on_sale -%}
+            <span class="sr-only">{{ 'products.price.sale_price' | t }}</span>
+          {%- endif -%}
+
+          <span class="font-price text-4xl leading-none font-light" data-price>{{ current_variant.price | money }}</span>
+
+          <s
+            class="product__compare font-price text-lg leading-none font-light"
+            data-compare
+            {% unless on_sale %}
+              hidden
+            {% endunless %}
+          >
+            <span class="sr-only">{{ 'products.price.regular_price' | t }}</span>
+            <span data-compare-value>{{ current_variant.compare_at_price | money }}</span>
+          </s>
+
+          {%- if section.settings.show_price_unit -%}
+            <span class="product__price-unit text-sm leading-snug">{{ 'products.price.each' | t }}</span>
+          {%- endif -%}
+        </p>
+
+        {%- if section.settings.show_description -%}
+          {%- if product.description != blank -%}
+            <div class="product__description mt-5 border-t border-[var(--product-border)] pt-5 text-base leading-relaxed">
+              {{- product.description -}}
+            </div>
+          {%- endif -%}
+        {%- endif -%}
+
+        {% form 'product', product, class: 'product__form mt-6' %}
+          {% # Rack keeps the last value when a field name repeats, and the
+             # no-script variant picker further down is rendered after this
+             # input — which is what lets that fallback override it. %}
+          <input type="hidden" name="id" value="{{ current_variant.id }}" data-variant-id>
+
+          {%- if return_to != blank -%}
+            <input type="hidden" name="return_to" value="{{ return_to }}">
+          {%- endif -%}
+
+          {%- unless product.has_only_default_variant -%}
+            <div class="product__options" data-option-set>
+              {%- for option in product.options_with_values -%}
+                {%- liquid
+                  # A long list of values is hard to judge from whichever one
+                  # happens to be selected, so the ends of the range are spelled
+                  # out beside the label. Short lists say it themselves.
+                  assign hint = ''
+                  if section.settings.show_option_range
+                    if option.values.size > 3
+                      assign hint = 'products.option_range_html' | t: first: option.values.first, last: option.values.last
+                    endif
+                  endif
+                -%}
+
+                <div class="product__field">
+                  <div class="product__field-head">
+                    <label class="product__label" for="{{ section.id }}-option-{{ forloop.index }}">
+                      {{- option.name -}}
+                    </label>
+
+                    {%- if hint != blank -%}
+                      <span class="product__hint text-sm leading-snug">{{ hint }}</span>
+                    {%- endif -%}
+                  </div>
+
+                  <div class="product__select-wrap">
+                    <select
+                      class="product__select"
+                      id="{{ section.id }}-option-{{ forloop.index }}"
+                      data-option-select
+                    >
+                      {%- for value in option.values -%}
+                        <option
+                          value="{{ value | escape }}"
+                          {% if option.selected_value == value %}
+                            selected
+                          {% endif %}
+                        >
+                          {{- value -}}
+                        </option>
+                      {%- endfor -%}
+                    </select>
+                  </div>
+                </div>
+              {%- endfor -%}
+            </div>
+
+            {% # With scripting off the selects above can't resolve a variant,
+               # so they're hidden and one plain variant select stands in. A
+               # Liquid `for` loop stops at 50 iterations, so a product with
+               # more variants than that lists its first 50 here. %}
+            <noscript>
+              <style>
+                .product__options {
+                  display: none;
+                }
+              </style>
+
+              <div class="product__field">
+                <div class="product__field-head">
+                  <label class="product__label" for="{{ section.id }}-variant">{{ 'products.variant' | t }}</label>
+                </div>
+
+                <div class="product__select-wrap">
+                  <select class="product__select" id="{{ section.id }}-variant" name="id">
+                    {%- for variant in product.variants -%}
+                      <option
+                        value="{{ variant.id }}"
+                        {% if variant.id == current_variant.id %}
+                          selected
+                        {% endif %}
+                        {% unless variant.available %}
+                          disabled
+                        {% endunless %}
+                      >
+                        {{ variant.title }} — {{ variant.price | money }}
+                      </option>
+                    {%- endfor -%}
+                  </select>
+                </div>
+              </div>
+            </noscript>
+          {%- endunless -%}
+
+          <div class="product__field">
+            <div class="product__field-head">
+              <label class="product__label" for="{{ section.id }}-quantity">{{ 'products.quantity' | t }}</label>
+            </div>
+
+            <div class="product__purchase">
+              <div class="product__quantity">
+                <button
+                  type="button"
+                  class="product__quantity-step"
+                  data-quantity-step="-1"
+                  aria-label="{{ 'products.decrease_quantity' | t }}"
+                >
+                  −
+                </button>
+
+                <input
+                  type="number"
+                  class="product__quantity-input"
+                  id="{{ section.id }}-quantity"
+                  name="quantity"
+                  value="{{ quantity }}"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  data-quantity-input
+                >
+
+                <button
+                  type="button"
+                  class="product__quantity-step"
+                  data-quantity-step="1"
+                  aria-label="{{ 'products.increase_quantity' | t }}"
+                >
+                  +
+                </button>
+              </div>
+
+              {% # The labels the script swaps in are carried on the button
+                 # itself: `javascript` is served as a static file, so no
+                 # translation can be read from inside it. %}
+              <button
+                type="submit"
+                class="product__submit"
+                data-submit
+                data-add-label="{{ 'products.add_to_cart_total_html' | t: total: '[[total]]' | escape }}"
+                data-sold-out-label="{{ 'products.sold_out' | t | escape }}"
+                data-unavailable-label="{{ 'products.unavailable' | t | escape }}"
+                {% unless current_variant.available %}
+                  disabled
+                {% endunless %}
+              >
+                {%- if current_variant.available -%}
+                  {{ 'products.add_to_cart_total_html' | t: total: initial_total }}
+                {%- else -%}
+                  {{ 'products.sold_out' | t }}
+                {%- endif -%}
+              </button>
+            </div>
+          </div>
+
+          <p class="product__stock mt-3 text-sm leading-snug">
+            <span
+              data-availability
+              data-in-stock-label="{{ 'products.in_stock' | t | escape }}"
+              data-sold-out-label="{{ 'products.out_of_stock' | t | escape }}"
+              data-unavailable-label="{{ 'products.unavailable_combination' | t | escape }}"
+            >
+              {%- if current_variant.available -%}
+                {{ 'products.in_stock' | t }}
+              {%- else -%}
+                {{ 'products.out_of_stock' | t }}
+              {%- endif -%}
+            </span>
+
+            {%- if section.settings.stock_note != blank -%}
+              {{ ' ' }}{{ section.settings.stock_note }}
+            {%- endif -%}
+          </p>
+        {% endform %}
+
+        {%- if section.blocks.size > 0 -%}
+          <div class="product__panels mt-8">
+            {% content_for 'blocks' %}
+          </div>
+        {%- endif -%}
+
+        {% # Every variant the script needs to match a set of options against.
+           # `| json` rather than a loop: a Liquid `for` stops at 50 iterations,
+           # which would quietly hide the rest of a large variant matrix. %}
+        <script type="application/json" data-variant-data>
+          {{ product.variants | json }}
+        </script>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% stylesheet %}
+  .product__breadcrumb,
+  .product__hint,
+  .product__price-unit,
+  .product__compare,
+  .product__stock {
+    opacity: 0.65;
+  }
+
+  .product__breadcrumb-link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .product__breadcrumb-link:hover,
+  .product__breadcrumb-link:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .product__eyebrow {
+    color: var(--product-accent, #0d463d);
+  }
+
+  /*
+   * Links come out of the product description as bare `<a>` tags, so they can't
+   * carry utility classes — they're styled from here instead.
+   */
+  .product__description a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .product__description a:hover,
+  .product__description a:focus-visible {
+    text-decoration: none;
+  }
+
+  .product__description :is(p, ul, ol) + :is(p, ul, ol) {
+    margin-top: 0.75rem;
+  }
+
+  /*
+   * A grid item's automatic minimum size comes from its contents, and the
+   * gallery's contents are a track as wide as every image laid end to end.
+   * Without this the whole page scrolls sideways on a phone instead of the
+   * gallery doing it.
+   */
+  .product__gallery,
+  .product__info {
+    min-width: 0;
+  }
+
+  /*
+   * One slide per column at full width, so the track scrolls horizontally and
+   * snaps. `scroll-behavior` is left to the script, which respects the
+   * shopper's reduced-motion setting.
+   */
+  .product__viewer {
+    display: grid;
+    overflow-x: auto;
+    background-color: var(--product-panel-bg, #ffffff);
+    border: 1px solid var(--product-border, rgb(0 0 0 / 12%));
+    border-radius: 2px;
+    grid-auto-columns: 100%;
+    grid-auto-flow: column;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .product__viewer::-webkit-scrollbar {
+    display: none;
+  }
+
+  .product__slide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    aspect-ratio: var(--product-media-aspect, 1);
+    scroll-snap-align: center;
+  }
+
+  /*
+   * Unlayered, so this beats the `height: auto` that `critical.css` sets on
+   * every image from `@layer reset`.
+   */
+  .product__image {
+    width: 100%;
+    height: 100%;
+    object-fit: var(--product-media-fit, contain);
+  }
+
+  /*
+   * Video and 3D media come out of `media_tag` as markup this section doesn't
+   * write, so the slide sizes whatever it's handed rather than relying on the
+   * class above having landed on it.
+   */
+  .product__slide > * {
+    width: 100%;
+    height: 100%;
+  }
+
+  /*
+   * Flex rather than a grid track list: the thumbnails then spread to fill the
+   * gallery however many there are, wrap once they'd fall below 5rem, and stop
+   * growing at 14rem so two of them don't blow up to half the column each.
+   */
+  .product__thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .product__thumbs > li {
+    display: flex;
+    flex: 1 1 5rem;
+    max-width: 14rem;
+  }
+
+  .product__thumb {
+    display: block;
+    width: 100%;
+    padding: 0.25rem;
+    background-color: var(--product-panel-bg, #ffffff);
+    border: 1px solid var(--product-border, rgb(0 0 0 / 12%));
+    border-radius: 2px;
+    transition: border-color 150ms ease;
+  }
+
+  .product__thumb:hover,
+  .product__thumb:focus-visible {
+    border-color: var(--product-accent, #0d463d);
+  }
+
+  /* Two pixels of accent rather than a tint, so the current image reads at a glance. */
+  .product__thumb--active {
+    border-color: var(--product-accent, #0d463d);
+    box-shadow: inset 0 0 0 1px var(--product-accent, #0d463d);
+  }
+
+  .product__thumb-image {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1;
+    object-fit: contain;
+  }
+
+  /*
+   * The `<noscript>` holding the fallback variant select sits between the
+   * options and the quantity, so it's what the quantity field is spaced from —
+   * the element is in the DOM either way, only its contents change.
+   */
+  .product__field + .product__field,
+  noscript + .product__field {
+    margin-top: 1.25rem;
+  }
+
+  .product__field-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.375rem;
+  }
+
+  .product__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /*
+   * The native dropdown arrow sits differently in every browser, so it's
+   * replaced with one drawn in `currentColor` — that way it follows the text
+   * colour setting instead of needing a colour baked into an SVG.
+   */
+  .product__select-wrap {
+    position: relative;
+  }
+
+  .product__select-wrap::after {
+    position: absolute;
+    top: 50%;
+    right: 1.125rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 1.5px solid currentcolor;
+    border-bottom: 1.5px solid currentcolor;
+    content: '';
+    opacity: 0.55;
+    pointer-events: none;
+    transform: translateY(-70%) rotate(45deg);
+  }
+
+  .product__select {
+    width: 100%;
+    padding: 0.875rem 2.5rem 0.875rem 1rem;
+    font-size: 1rem;
+    line-height: 1.25;
+    color: inherit;
+    appearance: none;
+    background-color: var(--product-panel-bg, #ffffff);
+    border: 1px solid var(--product-input-border, rgb(0 0 0 / 28%));
+  }
+
+  .product__purchase {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .product__quantity {
+    display: flex;
+    align-items: stretch;
+    background-color: var(--product-panel-bg, #ffffff);
+    border: 1px solid var(--product-input-border, rgb(0 0 0 / 28%));
+    border-radius: var(--style-border-radius-inputs, 2px);
+  }
+
+  .product__quantity-step {
+    width: 2.5rem;
+    font: inherit;
+    font-size: 1.125rem;
+    line-height: 1;
+    color: inherit;
+    cursor: pointer;
+    background-color: transparent;
+    border: 0;
+  }
+
+  .product__quantity-step:hover {
+    background-color: var(--section-bg, rgb(0 0 0 / 4%));
+  }
+
+  /*
+   * The spinner is replaced by the two buttons either side, and it would
+   * otherwise sit on top of the `+`.
+   */
+  .product__quantity-input {
+    width: 3.25rem;
+    padding: 0.875rem 0;
+    font-size: 1rem;
+    line-height: 1.25;
+    color: inherit;
+    text-align: center;
+    appearance: textfield;
+    background-color: transparent;
+    border: 0;
+  }
+
+  .product__quantity-input::-webkit-outer-spin-button,
+  .product__quantity-input::-webkit-inner-spin-button {
+    margin: 0;
+    appearance: none;
+  }
+
+  /*
+   * Filled, and the only filled thing on the page — there's one decision to
+   * make here and this is it.
+   */
+  .product__submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.875rem 1.5rem;
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--product-button-text, #ffffff);
+    text-align: center;
+    cursor: pointer;
+    background-color: var(--product-button-bg, #c0431b);
+    border: 0;
+    border-radius: var(--style-border-radius-inputs, 2px);
+    transition: opacity 150ms ease;
+  }
+
+  .product__submit:hover,
+  .product__submit:focus-visible {
+    opacity: 0.88;
+  }
+
+  .product__submit:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  // Keeps the price, the button total and the gallery in step with the option
+  // selects, and drives the quantity stepper.
+  //
+  // Everything here is an upgrade on markup that already works: the form is an
+  // ordinary POST to /cart/add, and with the script absent the no-script variant
+  // select in the markup takes over the choosing.
+  (() => {
+    const TOTAL_PLACEHOLDER = '[[total]]';
+
+    // Only reached if the shop has no money format at all. Written in two
+    // pieces because a pair of opening braces in this file would be read as the
+    // start of a Liquid expression.
+    const DEFAULT_MONEY_FORMAT = '${' + '{amount}}';
+
+    // Mirrors the `money` filter by substituting into the shop's own format
+    // string, so a figure written by this script and one written by Liquid can't
+    // disagree — every other character in the format is passed through untouched.
+    function formatMoney(cents, format) {
+      const amount = Number(cents) || 0;
+
+      function withDelimiters(precision, thousands, decimal) {
+        const fixed = (amount / 100).toFixed(precision);
+        const parts = fixed.split('.');
+        const whole = parts[0].replace(/(\d)(?=(\d\d\d)+$)/g, `$1${thousands}`);
+        return parts[1] ? whole + decimal + parts[1] : whole;
+      }
+
+      return format.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, name) => {
+        switch (name) {
+          case 'amount':
+            return withDelimiters(2, ',', '.');
+          case 'amount_no_decimals':
+            return withDelimiters(0, ',', '.');
+          case 'amount_with_comma_separator':
+            return withDelimiters(2, '.', ',');
+          case 'amount_no_decimals_with_comma_separator':
+            return withDelimiters(0, '.', ',');
+          case 'amount_with_apostrophe_separator':
+            return withDelimiters(2, "'", '.');
+          case 'amount_with_space_separator':
+            return withDelimiters(2, ' ', ',');
+          case 'amount_no_decimals_with_space_separator':
+            return withDelimiters(0, ' ', ',');
+          default:
+            return match;
+        }
+      });
+    }
+
+    function initSection(root) {
+      const form = root.querySelector('.product__form');
+      const data = root.querySelector('[data-variant-data]');
+      if (!form || !data) return;
+
+      let variants;
+      try {
+        variants = JSON.parse(data.textContent);
+      } catch (error) {
+        return;
+      }
+      if (!Array.isArray(variants) || variants.length === 0) return;
+
+      // Some shops set a money format that wraps the figure in markup. It's
+      // written as text here, so any tags are dropped rather than shown.
+      const moneyFormat = (root.dataset.moneyFormat || DEFAULT_MONEY_FORMAT).replace(/<[^>]*>/g, '');
+
+      const selects = Array.from(root.querySelectorAll('[data-option-select]'));
+      const idField = form.querySelector('[data-variant-id]');
+      const quantityField = form.querySelector('[data-quantity-input]');
+      const submit = form.querySelector('[data-submit]');
+      const priceField = root.querySelector('[data-price]');
+      const compare = root.querySelector('[data-compare]');
+      const compareValue = root.querySelector('[data-compare-value]');
+      const availability = root.querySelector('[data-availability]');
+      const viewer = root.querySelector('[data-viewer]');
+      const slides = Array.from(root.querySelectorAll('[data-slide]'));
+      const thumbs = Array.from(root.querySelectorAll('[data-thumb]'));
+
+      let current = variants.find((variant) => String(variant.id) === idField?.value) || variants[0];
+
+      function quantity() {
+        // `min="1"` stops the spinner going below one, but the field can still
+        // be cleared or typed into, so the floor is applied again here.
+        return Math.max(1, Math.floor(Number(quantityField?.value) || 1));
+      }
+
+      function matchVariant() {
+        if (selects.length === 0) return current;
+
+        const chosen = selects.map((select) => select.value);
+        return variants.find(
+          (variant) =>
+            Array.isArray(variant.options) &&
+            variant.options.length === chosen.length &&
+            variant.options.every((value, index) => value === chosen[index])
+        );
+      }
+
+      function setActiveThumb(mediaId) {
+        thumbs.forEach((thumb) => {
+          const isActive = thumb.dataset.mediaId === String(mediaId);
+          thumb.classList.toggle('product__thumb--active', isActive);
+          if (isActive) {
+            thumb.setAttribute('aria-current', 'true');
+          } else {
+            thumb.removeAttribute('aria-current');
+          }
+        });
+      }
+
+      function showMedia(mediaId) {
+        if (!viewer) return;
+
+        const slide = slides.find((item) => item.dataset.mediaId === String(mediaId));
+        if (!slide) return;
+
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        viewer.scrollTo({
+          left: slide.offsetLeft - viewer.offsetLeft,
+          behavior: reduced ? 'auto' : 'smooth',
+        });
+      }
+
+      function render() {
+        const total = current ? current.price * quantity() : 0;
+
+        if (submit) {
+          if (!current) {
+            submit.disabled = true;
+            submit.textContent = submit.dataset.unavailableLabel;
+          } else if (!current.available) {
+            submit.disabled = true;
+            submit.textContent = submit.dataset.soldOutLabel;
+          } else {
+            submit.disabled = false;
+            submit.textContent = submit.dataset.addLabel.replace(
+              TOTAL_PLACEHOLDER,
+              formatMoney(total, moneyFormat)
+            );
+          }
+        }
+
+        if (availability) {
+          if (!current) {
+            availability.textContent = availability.dataset.unavailableLabel;
+          } else if (current.available) {
+            availability.textContent = availability.dataset.inStockLabel;
+          } else {
+            availability.textContent = availability.dataset.soldOutLabel;
+          }
+        }
+
+        if (!current) return;
+
+        if (idField) idField.value = current.id;
+        if (priceField) priceField.textContent = formatMoney(current.price, moneyFormat);
+
+        if (compare) {
+          const discounted = current.compare_at_price > current.price;
+          compare.hidden = !discounted;
+          if (discounted && compareValue) {
+            compareValue.textContent = formatMoney(current.compare_at_price, moneyFormat);
+          }
+        }
+      }
+
+      selects.forEach((select) => {
+        select.addEventListener('change', () => {
+          current = matchVariant();
+          render();
+
+          if (current) {
+            // Keeps a shared or reloaded URL on the variant being looked at.
+            const url = new URL(window.location.href);
+            url.searchParams.set('variant', current.id);
+            window.history.replaceState({}, '', url);
+
+            const mediaId = current.featured_media && current.featured_media.id;
+            if (mediaId) showMedia(mediaId);
+          }
+        });
+      });
+
+      form.querySelectorAll('[data-quantity-step]').forEach((button) => {
+        button.addEventListener('click', () => {
+          if (!quantityField) return;
+          quantityField.value = Math.max(1, quantity() + Number(button.dataset.quantityStep));
+          render();
+        });
+      });
+
+      quantityField?.addEventListener('input', render);
+
+      thumbs.forEach((thumb) => {
+        thumb.addEventListener('click', (event) => {
+          // The href is a real link to the slide, which is what makes the
+          // thumbnails work without this script. With it, the track scrolls on
+          // its own rather than the browser jumping the whole page to it.
+          event.preventDefault();
+          showMedia(thumb.dataset.mediaId);
+          setActiveThumb(thumb.dataset.mediaId);
+        });
+      });
+
+      // Which slide is in view is the source of truth for the active thumbnail,
+      // so swiping the gallery keeps the strip below it in step too.
+      if (viewer && slides.length > 1 && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) setActiveThumb(entry.target.dataset.mediaId);
+            });
+          },
+          { root: viewer, threshold: 0.6 }
+        );
+
+        slides.forEach((slide) => observer.observe(slide));
+      }
+
+      // Firefox restores the selects and the quantity field on a soft reload,
+      // so the first paint can already be out of step with the markup.
+      render();
+    }
+
+    function start() {
+      document.querySelectorAll('[data-product-section]').forEach(initSection);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', start);
+    } else {
+      start();
+    }
+
+    // The theme editor swaps a section's markup wholesale when a setting
+    // changes, which would otherwise leave the new markup unbound.
+    document.addEventListener('shopify:section:load', (event) => {
+      event.target.querySelectorAll('[data-product-section]').forEach(initSection);
+    });
+  })();
+{% endjavascript %}
 
 {% schema %}
 {
   "name": "t:general.product",
-  "settings": [],
+  "blocks": [{ "type": "product-detail" }],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_breadcrumb",
+      "label": "t:labels.show_breadcrumb",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "eyebrow_source",
+      "label": "t:labels.eyebrow_source",
+      "info": "t:info.eyebrow_source",
+      "default": "product_type",
+      "options": [
+        { "value": "product_type", "label": "t:options.eyebrow_source.product_type" },
+        { "value": "collection", "label": "t:options.eyebrow_source.collection" },
+        { "value": "vendor", "label": "t:options.eyebrow_source.vendor" },
+        { "value": "none", "label": "t:options.eyebrow_source.none" }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "t:labels.show_description",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_price_unit",
+      "label": "t:labels.show_price_unit",
+      "info": "t:info.show_price_unit",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:general.variants"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_option_range",
+      "label": "t:labels.show_option_range",
+      "info": "t:info.show_option_range",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:general.purchase"
+    },
+    {
+      "type": "range",
+      "id": "default_quantity",
+      "label": "t:labels.default_quantity",
+      "info": "t:info.default_quantity",
+      "min": 1,
+      "max": 100,
+      "step": 1,
+      "default": 1
+    },
+    {
+      "type": "text",
+      "id": "stock_note",
+      "label": "t:labels.stock_note",
+      "info": "t:info.stock_note",
+      "default": "Most groups order 25 or more at a time."
+    },
+    {
+      "type": "select",
+      "id": "after_add",
+      "label": "t:labels.after_add",
+      "info": "t:info.after_add",
+      "default": "cart",
+      "options": [
+        { "value": "cart", "label": "t:options.after_add.cart" },
+        { "value": "stay", "label": "t:options.after_add.stay" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.media"
+    },
+    {
+      "type": "select",
+      "id": "media_aspect_ratio",
+      "label": "t:labels.media_aspect_ratio",
+      "default": "1 / 1",
+      "options": [
+        { "value": "1 / 1", "label": "t:options.aspect_ratio.square" },
+        { "value": "4 / 3", "label": "t:options.aspect_ratio.landscape" },
+        { "value": "3 / 4", "label": "t:options.aspect_ratio.portrait" }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "media_fit",
+      "label": "t:labels.media_fit",
+      "info": "t:info.media_fit",
+      "default": "contain",
+      "options": [
+        { "value": "contain", "label": "t:options.media_fit.contain" },
+        { "value": "cover", "label": "t:options.media_fit.cover" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "t:labels.accent_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "panel_background_color",
+      "label": "t:labels.panel_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "button_background_color",
+      "label": "t:labels.button_background_color",
+      "default": "#C0431B"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "t:labels.button_text_color",
+      "default": "#FFFFFF"
+    }
+  ],
   "disabled_on": {
     "groups": ["header", "footer"]
   }

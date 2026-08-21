@@ -11,10 +11,43 @@
   "sections": {
     "main": {
       "type": "product",
+      "blocks": {
+        "shipping": {
+          "type": "product-detail",
+          "settings": {
+            "heading": "Shipping and delivery",
+            "content": "<p>Orders ship within two business days. Delivery inside the country takes a further three to seven days.</p>"
+          }
+        },
+        "bulk": {
+          "type": "product-detail",
+          "settings": {
+            "heading": "Bulk and group orders",
+            "content": "<p>Ordering for a group? Larger quantities ship in the same box, and there's nothing to fill in beyond the quantity above.</p>"
+          }
+        },
+        "languages": {
+          "type": "product-detail",
+          "settings": {
+            "heading": "Other languages",
+            "content": "<p>Where a translation exists it's listed as a language option above. Ask us if you need one that isn't there yet.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "shipping",
+        "bulk",
+        "languages"
+      ],
+      "settings": {}
+    },
+    "related": {
+      "type": "related-products",
       "settings": {}
     }
   },
   "order": [
-    "main"
+    "main",
+    "related"
   ]
 }

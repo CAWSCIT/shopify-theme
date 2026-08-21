@@ -1,0 +1,344 @@
+{% comment %}
+  Renders the row of products beneath a product page — either a hand-picked
+  list, or Shopify's recommendations for the product being viewed.
+
+  Recommendations aren't part of the product page's own response: the section
+  is fetched a second time from the recommendations endpoint, which is the
+  render that has `recommendations` filled in. The script below does the fetch
+  and drops the result in place, so the section is silently absent for a
+  shopper without JavaScript rather than being an empty heading.
+
+  https://shopify.dev/docs/storefronts/themes/product-merchandising/recommendations
+{% endcomment %}
+
+{%- liquid
+  # A hand-picked list wins outright — a merchant who has said what belongs
+  # here shouldn't have it topped up with guesses.
+  assign card_products = section.settings.products
+  assign fetch_recommendations = false
+
+  if card_products == blank
+    assign fetch_recommendations = true
+
+    # `recommendations` only holds products on the second render — the one made
+    # through the recommendations endpoint — and `performed` is what says so.
+    # Reading `recommendations.products` before then hands back something that
+    # isn't a list at all, so it's left alone until it's real. Splitting an
+    # empty string is how you write an empty array in Liquid.
+    assign card_products = '' | split: ','
+
+    if recommendations.performed
+      assign card_products = recommendations.products
+    endif
+  endif
+
+  assign columns_mobile = section.settings.columns_mobile | plus: 0
+  assign columns_desktop = section.settings.columns_desktop
+
+  # Each card is one grid column wide, so its share of the viewport is just the
+  # column count. Roughly right is enough — it only steers which source the
+  # browser picks out of `srcset`.
+  assign desktop_width = 100 | divided_by: columns_desktop
+  assign mobile_width = 100 | divided_by: columns_mobile
+  assign card_sizes = '(min-width: 48rem) ' | append: desktop_width | append: 'vw, ' | append: mobile_width | append: 'vw'
+
+  # `subtitle_metafield` is written as `namespace.key` in one field to keep the
+  # settings panel short.
+  assign metafield_parts = section.settings.subtitle_metafield | split: '.'
+  assign metafield_namespace = metafield_parts[0]
+  assign metafield_key = metafield_parts[1]
+-%}
+
+{%- capture card_items -%}
+  {%- for card_product in card_products limit: section.settings.products_to_show -%}
+    {%- liquid
+      assign subtitle = ''
+      case section.settings.subtitle_source
+        when 'metafield'
+          assign subtitle = card_product.metafields[metafield_namespace][metafield_key] | metafield_text
+        when 'product_type'
+          assign subtitle = card_product.type
+        when 'vendor'
+          assign subtitle = card_product.vendor
+      endcase
+    -%}
+
+    <li>
+      {% render 'product-card', product: card_product, subtitle: subtitle, sizes: card_sizes %}
+    </li>
+  {%- endfor -%}
+{%- endcapture -%}
+
+{% # Whether any cards actually came out is what decides the heading, rather
+   # than counting the list first — a heading over an empty row is worse than
+   # no row, and this can't be caught out by a source that isn't a list. %}
+{%- capture cards -%}
+  {%- if card_items != blank -%}
+    <div class="mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] py-12 lg:py-16">
+      {%- if section.settings.heading != blank -%}
+        <h2 class="border-b-2 border-[var(--section-rule)] pb-4 font-serif text-3xl leading-tight font-normal lg:text-4xl">
+          {{- section.settings.heading -}}
+        </h2>
+      {%- endif -%}
+
+      <ul role="list" class="related-products__grid mt-8 list-none pl-0 lg:mt-10">
+        {{ card_items }}
+      </ul>
+    </div>
+  {%- endif -%}
+{%- endcapture -%}
+
+<section
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --section-rule: {{ section.settings.text_color | color_modify: 'alpha', 0.85 }};
+    --card-bg: {{ section.settings.card_background_color }};
+    --card-border: {{ section.settings.text_color | color_modify: 'alpha', 0.1 }};
+    --card-media-bg: {{ section.settings.media_background_color }};
+    --card-media-aspect: {{ section.settings.media_aspect_ratio }};
+    --columns-mobile: {{ columns_mobile }};
+    --columns-desktop: {{ columns_desktop }};
+    --grid-gap: {{ section.settings.grid_gap }}px;
+  "
+>
+  {%- if fetch_recommendations -%}
+    {% # Empty on the first render, which is what makes the section take up no
+       # height at all until there's something to put in it. %}
+    <div
+      data-recommendations
+      data-url="{{ routes.product_recommendations_url }}?section_id={{ section.id }}&amp;product_id={{ product.id }}&amp;limit={{ section.settings.products_to_show }}&amp;intent={{ section.settings.intent }}"
+    >
+      {{ cards }}
+    </div>
+  {%- else -%}
+    {{ cards }}
+  {%- endif -%}
+</section>
+
+{% stylesheet %}
+  /*
+   * The column counts are merchant settings, so the grid is built from custom
+   * properties here rather than from utility classes — Tailwind can only emit
+   * the classes it finds in the markup, and these values aren't known until the
+   * page renders.
+   */
+  .related-products__grid {
+    display: grid;
+    gap: var(--grid-gap, 20px);
+    grid-template-columns: repeat(var(--columns-mobile, 2), minmax(0, 1fr));
+  }
+
+  @media (min-width: 48rem) {
+    .related-products__grid {
+      grid-template-columns: repeat(var(--columns-desktop, 4), minmax(0, 1fr));
+    }
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  // Fetches the section a second time from the recommendations endpoint and
+  // moves the markup across. Nothing is shown until it lands, so a failed or
+  // empty response simply leaves the page as it was.
+  (() => {
+    async function load(container) {
+      const url = container.dataset.url;
+      if (!url) return;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) return;
+
+        const markup = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const fetched = markup.querySelector('[data-recommendations]');
+        if (!fetched) return;
+        if (fetched.innerHTML.trim() === '') return;
+
+        container.innerHTML = fetched.innerHTML;
+      } catch (error) {
+        // Nothing to show and nothing to say — the row is an extra, not the page.
+      }
+    }
+
+    // The row sits below the fold, so the request waits until it's near enough
+    // to matter and doesn't compete with the product's own images.
+    function watch(scope) {
+      const containers = scope.querySelectorAll('[data-recommendations][data-url]');
+
+      if (!('IntersectionObserver' in window)) {
+        containers.forEach(load);
+        return;
+      }
+
+      const observer = new IntersectionObserver(
+        (entries, self) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            self.unobserve(entry.target);
+            load(entry.target);
+          });
+        },
+        { rootMargin: '400px' }
+      );
+
+      containers.forEach((container) => observer.observe(container));
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => watch(document));
+    } else {
+      watch(document);
+    }
+
+    // The theme editor swaps a section's markup wholesale when a setting
+    // changes, which empties this row again.
+    document.addEventListener('shopify:section:load', (event) => watch(event.target));
+  })();
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "t:general.related_products",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:labels.heading",
+      "default": "Often ordered together"
+    },
+    {
+      "type": "product_list",
+      "id": "products",
+      "label": "t:labels.featured_products",
+      "limit": 12,
+      "info": "t:info.related_manual"
+    },
+    {
+      "type": "select",
+      "id": "intent",
+      "label": "t:labels.recommendation_intent",
+      "info": "t:info.recommendation_intent",
+      "default": "complementary",
+      "options": [
+        { "value": "complementary", "label": "t:options.recommendation_intent.complementary" },
+        { "value": "related", "label": "t:options.recommendation_intent.related" }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "products_to_show",
+      "label": "t:labels.products_to_show",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "header",
+      "content": "t:general.card"
+    },
+    {
+      "type": "select",
+      "id": "subtitle_source",
+      "label": "t:labels.subtitle_source",
+      "info": "t:info.subtitle_source",
+      "default": "none",
+      "options": [
+        { "value": "metafield", "label": "t:options.subtitle_source.metafield" },
+        { "value": "product_type", "label": "t:options.subtitle_source.product_type" },
+        { "value": "vendor", "label": "t:options.subtitle_source.vendor" },
+        { "value": "none", "label": "t:options.subtitle_source.none" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "subtitle_metafield",
+      "label": "t:labels.subtitle_metafield",
+      "info": "t:info.subtitle_metafield",
+      "default": "custom.subtitle",
+      "visible_if": "{{ section.settings.subtitle_source == 'metafield' }}"
+    },
+    {
+      "type": "select",
+      "id": "media_aspect_ratio",
+      "label": "t:labels.media_aspect_ratio",
+      "default": "1 / 1",
+      "options": [
+        { "value": "1 / 1", "label": "t:options.aspect_ratio.square" },
+        { "value": "4 / 3", "label": "t:options.aspect_ratio.landscape" },
+        { "value": "3 / 4", "label": "t:options.aspect_ratio.portrait" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.layout"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "label": "t:labels.columns_desktop",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "select",
+      "id": "columns_mobile",
+      "label": "t:labels.columns_mobile",
+      "default": "2",
+      "options": [
+        { "value": "1", "label": "1" },
+        { "value": "2", "label": "2" }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "grid_gap",
+      "label": "t:labels.grid_gap",
+      "min": 0,
+      "max": 48,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "card_background_color",
+      "label": "t:labels.card_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "media_background_color",
+      "label": "t:labels.media_background_color",
+      "default": "#EAE6DC"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:general.related_products"
+    }
+  ],
+  "enabled_on": {
+    "templates": ["product"]
+  }
+}
+{% endschema %}
