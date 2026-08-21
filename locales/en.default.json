@@ -136,11 +136,21 @@
     "enter": "Enter"
   },
   "search": {
-    "title": "Search",
-    "placeholder": "Search articles, pages, or products",
+    "all_products": "All products",
+    "category": "Category",
+    "empty_category": "Nothing in this category yet.",
     "header_placeholder": "Search the catalog",
-    "submit": "Search",
     "no_results_html": "No results found for {{ terms }}",
-    "results_for_html": "{{ count }} results found for {{ terms }}"
+    "placeholder": "Search the catalog",
+    "show_all": "Show all products",
+    "sort_label": "Sort by",
+    "sort_relevance": "Best match",
+    "sort_submit": "Sort",
+    "submit": "Search",
+    "title": "Search",
+    "results_count": {
+      "one": "{{ count }} result",
+      "other": "{{ count }} results"
+    }
   }
 }

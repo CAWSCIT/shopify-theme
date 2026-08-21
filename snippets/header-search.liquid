@@ -11,18 +11,31 @@
   {% render 'header-search', id: 'header-search-desktop', classes: 'w-64 xl:w-80' %}
 {% enddoc %}
 
+{%- liquid
+  # The search page keeps its category filter inside `q`, as a
+  # `product_type:"…"` term. Showing that raw would put markup the shopper
+  # never typed into the header field, so it's trimmed back off here.
+  assign terms = search.terms | split: 'product_type:"' | first | strip
+-%}
+
 <form
   action="{{ routes.search_url }}"
   method="get"
   role="search"
   class="flex shrink-0 items-center gap-2 rounded-xs border-white/50 bg-[var(--header-search-bg)] px-3 py-2 ring-1 ring-white/10 focus-within:ring-white/30 {{ classes }}"
 >
+  {% # The catalog search is products-only, and prefix matching on the last
+     # word is what makes a half-typed "keyt" find the keytags. Both are carried
+     # on the search page's own form too, so the two entry points agree. %}
+  <input type="hidden" name="type" value="product">
+  <input type="hidden" name="options[prefix]" value="last">
+
   <label for="{{ id }}" class="sr-only">{{ 'search.title' | t }}</label>
   <input
     id="{{ id }}"
     type="search"
     name="q"
-    value="{{ search.terms | escape }}"
+    value="{{ terms | escape }}"
     placeholder="{{ 'search.header_placeholder' | t }}"
     class="order-2 w-full min-w-0 appearance-none border-0 bg-transparent text-sm text-[var(--header-text)] placeholder:text-[var(--header-text)] placeholder:opacity-60 focus:outline-none"
   >

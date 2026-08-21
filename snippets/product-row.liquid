@@ -16,12 +16,13 @@
 
   Colours and the thumbnail are read from custom properties so a parent can
   theme a whole list at once by setting them on the container: `--row-hover`,
-  `--row-border`, `--row-input-border`, `--row-media-bg`, `--row-media-size`,
-  `--row-media-fit`, `--row-accent`, `--row-accent-text`, `--row-error`. Every
-  one has a fallback, so the row also stands on its own.
+  `--row-border`, `--row-input-border`, `--row-media-bg`, `--row-media-border`,
+  `--row-media-size`, `--row-media-fit`, `--row-accent`, `--row-accent-text`,
+  `--row-error`. Every one has a fallback, so the row also stands on its own.
 
   @param {product} product - The product to render
   @param {string} [subtitle] - A short descriptor shown beside the title
+  @param {string} [detail] - A short line under the title, in place of the SKU
   @param {boolean} [show_sku] - Show the SKU under the title, defaults to true
   @param {number} [variant_limit] - How many variants to list, capped at 50 by Liquid
   @param {string} [sizes] - The `sizes` attribute for the thumbnail
@@ -115,7 +116,12 @@
         {%- endif -%}
       </span>
 
-      {%- if show_sku -%}
+      {% # `detail` replaces the SKU rather than joining it: a caller that wants
+         # both passes both in one string, which keeps the line to one row
+         # however it's composed. %}
+      {%- if detail != blank -%}
+        <span class="product-row__sku text-sm leading-snug">{{ detail }}</span>
+      {%- elsif show_sku -%}
         {%- if sku != blank -%}
           <span class="product-row__sku text-sm leading-snug">{{ sku }}</span>
         {%- endif -%}
@@ -343,6 +349,7 @@
     width: var(--row-media-size, 72px);
     height: var(--row-media-size, 72px);
     background-color: var(--row-media-bg, rgb(0 0 0 / 4%));
+    border: 1px solid var(--row-media-border, transparent);
   }
 
   /*

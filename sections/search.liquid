@@ -1,70 +1,793 @@
 {% comment %}
-  This section is used in the search template to render search results for
-  products, articles, and pages.
+  This section is used in the search template to render the catalog search —
+  a category sidebar, the search field, and the matching products as rows.
 
   https://shopify.dev/docs/storefronts/themes/architecture/templates/search
 {% endcomment %}
 
-<h1>{{ 'search.title' | t }}</h1>
+{%- liquid
+  # Storefront search has no filter parameter of its own: a category is a
+  # field-scoped term inside `q`, in the form `product_type:"Keytags"`. It's
+  # always appended last and in this exact shape, so it can be lifted back out
+  # here — the search box then shows only what the shopper typed.
+  #
+  # `split` returns the whole string as one part when the separator isn't
+  # there, which is what makes the unscoped case fall out of the same code.
+  assign scope_field = 'product_type:"'
+  assign query_parts = search.terms | split: scope_field
+  assign terms = query_parts.first | strip
 
-<form action="{{ routes.search_url }}" method="get" role="search">
-  <input
-    type="search"
-    size="50"
-    name="q"
-    value="{{ search.terms | escape }}"
-    placeholder="{{ 'search.placeholder' | t }}"
-  >
-  <button type="submit">{{ 'search.submit' | t }}</button>
-</form>
+  assign active_category = ''
+  if query_parts.size > 1
+    assign active_category = query_parts[1] | split: '"' | first
+  endif
 
-{% if search.performed %}
-  {% if search.results_count == 0 %}
-    <p>{{ 'search.no_results_html' | t: terms: search.terms }}</p>
-  {% else %}
-    <p>{{ 'search.results_for_html' | t: terms: search.terms, count: search.results_count }}</p>
+  # A hand-ordered menu beats alphabetical when the categories have an obvious
+  # reading order. Each link's title is used as the product type to scope by,
+  # so the menu is a list of collections whose titles match their types.
+  assign category_menu = section.settings.category_menu
+  assign categories = collections.all.all_types
+  if category_menu != blank
+    if category_menu.links.size > 0
+      assign categories = category_menu.links | map: 'title'
+    endif
+  endif
 
-    <div class="search-results">
-      {% paginate search.results by 20 %}
-        {% # Search result items may be an article, a page, or a product. %}
-        {% for result in search.results %}
-          <div class="search-result">
-            {% assign featured_image = result.featured_image | default: result.image %}
-            {% if featured_image %}
-              {% render 'image', class: 'search-result__image', image: featured_image, url: result.url, width: 400 %}
-            {% endif %}
-            <div class="search-result__content">
-              <p>
-                {{ result.title | link_to: result.url }}
-                {% if result.price %}
-                  <span class="font-price">{{ result.price | money_with_currency }}</span>
-                {% endif %}
-              </p>
-            </div>
-          </div>
-        {% endfor %}
+  # Carried on every link and form so a category, the sort order and the
+  # products-only scope survive each other.
+  capture search_params
+    echo '&type=product&options[prefix]=last'
+    if search.sort_by != blank
+      echo '&sort_by='
+      echo search.sort_by
+    endif
+  endcapture
 
-        {{ paginate | default_pagination }}
-      {% endpaginate %}
-    </div>
+  assign encoded_terms = terms | url_encode
+  assign all_href = routes.search_url | append: '?q=' | append: encoded_terms | append: search_params
+
+  # `subtitle_metafield` is written as `namespace.key` in one field to keep the
+  # settings panel short.
+  assign metafield_parts = section.settings.subtitle_metafield | split: '.'
+  assign metafield_namespace = metafield_parts[0]
+  assign metafield_key = metafield_parts[1]
+
+  # The thumbnail is a fixed square at every breakpoint, so `sizes` is just that
+  # square. Built up here because a filter argument can't itself be filtered.
+  assign media_sizes = section.settings.media_size | append: 'px'
+
+  # `back` returns the shopper to these results after adding. Searching is a
+  # browsing activity, so staying put is the default.
+  assign return_to = ''
+  if section.settings.after_add == 'stay'
+    assign return_to = 'back'
+  endif
+
+  # With nothing searched for, the page is the catalog rather than an empty
+  # frame — "all products" is a starting point, not a no-op.
+  assign showing_catalog = true
+  if search.performed
+    assign showing_catalog = false
+  endif
+-%}
+
+<section
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  data-search-section
+  {% if active_category != blank %}
+    data-scope="{{ scope_field | append: active_category | append: '"' | escape }}"
   {% endif %}
-{% endif %}
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --search-border: {{ section.settings.text_color | color_modify: 'alpha', 0.12 }};
+    --search-input-border: {{ section.settings.text_color | color_modify: 'alpha', 0.85 }};
+    --search-panel-bg: {{ section.settings.panel_background_color }};
+    --search-hover: {{ section.settings.text_color | color_modify: 'alpha', 0.05 }};
+    --search-active-bg: {{ section.settings.category_active_color }};
+    --row-hover: {{ section.settings.text_color | color_modify: 'alpha', 0.03 }};
+    --row-bg: {{ section.settings.panel_background_color }};
+    --row-border: {{ section.settings.text_color | color_modify: 'alpha', 0.12 }};
+    --row-input-border: {{ section.settings.text_color | color_modify: 'alpha', 0.3 }};
+    --row-media-bg: {{ section.settings.media_background_color }};
+    --row-media-border: {{ section.settings.text_color | color_modify: 'alpha', 0.12 }};
+    --row-media-size: {{ section.settings.media_size }}px;
+    --row-media-fit: {{ section.settings.media_fit }};
+    --row-accent: {{ section.settings.accent_color }};
+    --row-accent-text: {{ section.settings.accent_text_color }};
+  "
+>
+  <div class="mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] py-6 lg:py-10">
+    {% # The search field is the heading here, in the sense that it's what the
+       # page is for — a second visible title above it would only push the
+       # results down. %}
+    <h1 class="sr-only">{{ 'search.title' | t }}</h1>
+
+    <div class="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-12">
+      <aside class="search__sidebar" aria-labelledby="{{ section.id }}-categories">
+        <h2 class="search__sidebar-title" id="{{ section.id }}-categories">{{ 'search.category' | t }}</h2>
+
+        <ul role="list" class="search__categories list-none pl-0">
+          <li>
+            <a
+              class="search__category {% if active_category == blank %}search__category--active{% endif %}"
+              href="{{ all_href }}"
+              {% if active_category == blank %}
+                aria-current="page"
+              {% endif %}
+            >
+              {{- 'search.all_products' | t -}}
+            </a>
+          </li>
+
+          {%- for category in categories -%}
+            {%- liquid
+              assign scoped_query = terms | append: ' ' | append: scope_field | append: category | append: '"' | strip | url_encode
+              assign category_href = routes.search_url | append: '?q=' | append: scoped_query | append: search_params
+
+              assign is_active = false
+              if category == active_category
+                assign is_active = true
+              endif
+            -%}
+
+            <li>
+              <a
+                class="search__category {% if is_active %}search__category--active{% endif %}"
+                href="{{ category_href }}"
+                {% if is_active %}
+                  aria-current="page"
+                {% endif %}
+              >
+                {{- category -}}
+              </a>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </aside>
+
+      <div class="min-w-0">
+        {% # A plain GET form to /search that works on its own. The script below
+           # intercepts it only to fold the active category back into `q`;
+           # without it, searching again simply drops back to all products. %}
+        <form action="{{ routes.search_url }}" method="get" role="search" data-search-form>
+          <input type="hidden" name="type" value="product">
+          <input type="hidden" name="options[prefix]" value="last">
+
+          <div class="search__field">
+            <button type="submit" class="search__submit">
+              <span class="sr-only">{{ 'search.submit' | t }}</span>
+              {{- 'icon-search.svg' | inline_asset_content -}}
+            </button>
+
+            <label class="sr-only" for="{{ section.id }}-input">{{ 'search.title' | t }}</label>
+            <input
+              class="search__input"
+              id="{{ section.id }}-input"
+              type="search"
+              name="q"
+              value="{{ terms | escape }}"
+              placeholder="{{ 'search.placeholder' | t }}"
+              autocomplete="off"
+              data-search-input
+            >
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <p class="search__count text-base leading-snug">
+              {%- if showing_catalog -%}
+                {{- 'general.navigation.count_products' | t: count: collections.all.all_products_count -}}
+              {%- else -%}
+                {{- 'search.results_count' | t: count: search.results_count -}}
+              {%- endif -%}
+            </p>
+
+            {% # Only shown once a search has run: `sort_by` is read from the URL
+               # by the search itself, and the catalog listing below isn't a
+               # search, so there'd be nothing to apply it to. %}
+            {%- if search.performed -%}
+              {%- if search.sort_options.size > 0 -%}
+                <div class="search__sort">
+                  <label class="sr-only" for="{{ section.id }}-sort">{{ 'search.sort_label' | t }}</label>
+
+                  <div class="search__select-wrap">
+                    {% # `sort_by` is only in the URL once it's been chosen, so
+                       # the first search falls back to Shopify's own default —
+                       # otherwise the box would show the first option while the
+                       # results were ordered by another. %}
+                    {%- assign current_sort = search.sort_by | default: search.default_sort_by -%}
+
+                    <select class="search__select" id="{{ section.id }}-sort" name="sort_by" data-sort>
+                      {%- for option in search.sort_options -%}
+                        {%- liquid
+                          assign option_name = option.name
+                          if option.value == 'relevance'
+                            assign option_name = 'search.sort_relevance' | t
+                          endif
+                        -%}
+
+                        <option
+                          value="{{ option.value }}"
+                          {% if option.value == current_sort %}
+                            selected
+                          {% endif %}
+                        >
+                          {{- option_name -}}
+                        </option>
+                      {%- endfor -%}
+                    </select>
+                  </div>
+
+                  {% # The select submits itself once the script is running. %}
+                  <noscript>
+                    <button type="submit" class="search__sort-submit">{{ 'search.sort_submit' | t }}</button>
+                  </noscript>
+                </div>
+              {%- endif -%}
+            {%- endif -%}
+          </div>
+        </form>
+
+        {%- liquid
+          assign results = search.results
+          if showing_catalog
+            assign results = collections.all.products
+          endif
+        -%}
+
+        {%- paginate results by section.settings.products_per_page -%}
+          {%- if results.size > 0 -%}
+            <ul role="list" class="search__list mt-4 list-none pl-0">
+              {%- for result in results -%}
+                {% # A search without `type=product` — an old bookmark, say —
+                   # can still return articles and pages. They're listed plainly
+                   # rather than skipped, so the count above stays honest. %}
+                {%- if result.object_type == 'product' -%}
+                  {%- liquid
+                    assign subtitle = ''
+                    case section.settings.subtitle_source
+                      when 'metafield'
+                        assign subtitle = result.metafields[metafield_namespace][metafield_key] | metafield_text
+                      when 'product_type'
+                        assign subtitle = result.type
+                      when 'vendor'
+                        assign subtitle = result.vendor
+                      when 'variant_count'
+                        # Only says something worth reading once there's a
+                        # choice to make — "1 option" is noise otherwise.
+                        if result.variants.size > 1
+                          assign subtitle = 'products.option_count' | t: count: result.variants.size
+                        endif
+                    endcase
+
+                    # The type earns its place on the search page in a way it
+                    # doesn't on a collection: it's what the sidebar filters by.
+                    assign detail = ''
+                    if section.settings.show_type
+                      assign detail = result.type
+                    endif
+
+                    if section.settings.show_sku
+                      assign sku = result.selected_or_first_available_variant.sku
+                      if sku != blank
+                        if detail == blank
+                          assign detail = sku
+                        else
+                          assign detail = detail | append: ' · ' | append: sku
+                        endif
+                      endif
+                    endif
+                  -%}
+
+                  <li class="search__item">
+                    {% render 'product-row',
+                      product: result,
+                      subtitle: subtitle,
+                      detail: detail,
+                      show_sku: false,
+                      variant_limit: section.settings.variant_limit,
+                      sizes: media_sizes,
+                      return_to: return_to
+                    %}
+                  </li>
+                {%- else -%}
+                  <li class="search__item">
+                    <a class="search__other" href="{{ result.url }}">
+                      <span class="text-base leading-snug font-semibold">{{ result.title }}</span>
+                      <span class="search__other-type text-sm leading-snug">{{ result.object_type }}</span>
+                    </a>
+                  </li>
+                {%- endif -%}
+              {%- endfor -%}
+            </ul>
+          {%- else -%}
+            <p class="search__empty mt-6 text-base leading-snug">
+              {%- if terms != blank -%}
+                {{- 'search.no_results_html' | t: terms: terms -}}
+              {%- else -%}
+                {{- 'search.empty_category' | t -}}
+              {%- endif -%}
+
+              {{ ' ' }}
+              <a class="search__empty-link" href="{{ all_href }}">{{ 'search.show_all' | t }}</a>
+            </p>
+          {%- endif -%}
+
+          {%- if paginate.pages > 1 -%}
+            <nav class="search__pagination mt-8" aria-label="{{ 'collections.pagination' | t }}">
+              {{ paginate | default_pagination }}
+            </nav>
+          {%- endif -%}
+        {%- endpaginate -%}
+      </div>
+    </div>
+  </div>
+</section>
 
 {% stylesheet %}
-  .search-results {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  .search__count,
+  .search__empty,
+  .search__other-type {
+    opacity: 0.7;
   }
-  .search-results .prev,
-  .search-results .page,
-  .search-results .next {
-    grid-column: 1 / -1;
+
+  /*
+   * A grid item's automatic minimum size comes from its contents, and on a
+   * phone the categories below are one long unwrapped row. Without this the
+   * whole page widens to fit them instead of the row scrolling on its own.
+   */
+  .search__sidebar {
+    min-width: 0;
+  }
+
+  .search__sidebar-title {
+    padding-bottom: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--search-border, rgb(0 0 0 / 12%));
+  }
+
+  /*
+   * A scrolling row of categories on a phone and a column from `lg` up. Same
+   * markup either way — a sidebar that stacks would push the search field a
+   * screenful down before the shopper has typed anything.
+   */
+  .search__categories {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.75rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .search__categories::-webkit-scrollbar {
+    display: none;
+  }
+
+  .search__categories > li {
+    flex: 0 0 auto;
+  }
+
+  @media screen and (min-width: 64rem) {
+    .search__categories {
+      display: grid;
+      gap: 0.125rem;
+      overflow: visible;
+    }
+  }
+
+  .search__category {
+    display: block;
+    padding: 0.625rem 1rem;
+    font-size: 1rem;
+    line-height: 1.25;
+    color: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+    border-radius: 2px;
+    transition: background-color 150ms ease;
+  }
+
+  .search__category:hover,
+  .search__category:focus-visible {
+    background-color: var(--search-hover, rgb(0 0 0 / 5%));
+  }
+
+  /*
+   * A filled block rather than a weight change: which category you're in has to
+   * be readable from the results, not just from the label itself.
+   */
+  .search__category--active,
+  .search__category--active:hover {
+    font-weight: 600;
+    background-color: var(--search-active-bg, #dce7dd);
+  }
+
+  /*
+   * The field is the loudest thing on the page, so its border is drawn at close
+   * to full text colour while everything around it sits on hairlines.
+   */
+  .search__field {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 1rem;
+    background-color: var(--search-panel-bg, #ffffff);
+    border: 1px solid var(--search-input-border, rgb(0 0 0 / 85%));
+    border-radius: 2px;
+  }
+
+  .search__field:focus-within {
+    outline: 2px solid var(--row-accent, #0d463d);
+    outline-offset: 1px;
+  }
+
+  .search__submit {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    color: inherit;
+    cursor: pointer;
+    background-color: transparent;
+    border: 0;
+    opacity: 0.7;
+  }
+
+  .search__submit:hover {
+    opacity: 1;
+  }
+
+  .search__submit > svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .search__input {
+    width: 100%;
+    min-width: 0;
+    padding: 0.9375rem 0;
+    font-size: 1.0625rem;
+    line-height: 1.25;
+    color: inherit;
+    appearance: none;
+    background-color: transparent;
+    border: 0;
+  }
+
+  .search__input:focus {
+    outline: none;
+  }
+
+  .search__input::-webkit-search-cancel-button {
+    cursor: pointer;
+  }
+
+  .search__sort {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /*
+   * The native dropdown arrow sits differently in every browser, so it's
+   * replaced with one drawn in `currentColor` — that way it follows the text
+   * colour setting instead of needing a colour baked into an SVG.
+   */
+  .search__select-wrap {
+    position: relative;
+  }
+
+  .search__select-wrap::after {
+    position: absolute;
+    top: 50%;
+    right: 0.875rem;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-right: 1.5px solid currentcolor;
+    border-bottom: 1.5px solid currentcolor;
+    content: '';
+    opacity: 0.55;
+    pointer-events: none;
+    transform: translateY(-70%) rotate(45deg);
+  }
+
+  .search__select {
+    padding: 0.625rem 2.25rem 0.625rem 1rem;
+    font-size: 0.9375rem;
+    line-height: 1.25;
+    color: inherit;
+    appearance: none;
+    background-color: var(--search-panel-bg, #ffffff);
+    border: 1px solid var(--search-border, rgb(0 0 0 / 12%));
+    border-radius: 2px;
+  }
+
+  .search__sort-submit {
+    padding: 0.625rem 1rem;
+    font: inherit;
+    font-size: 0.9375rem;
+    color: inherit;
+    cursor: pointer;
+    background-color: transparent;
+    border: 1px solid var(--search-border, rgb(0 0 0 / 12%));
+    border-radius: 2px;
+  }
+
+  /*
+   * Hairlines rather than the collection page's panel: the results sit under a
+   * search field that's already a strong rectangle, and a second box around
+   * them would fight it.
+   */
+  .search__list {
+    border-top: 1px solid var(--row-border, rgb(0 0 0 / 12%));
+  }
+
+  .search__item {
+    border-bottom: 1px solid var(--row-border, rgb(0 0 0 / 12%));
+  }
+
+  .search__other {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+    padding: 1rem 1.25rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .search__other:hover {
+    background-color: var(--row-hover, rgb(0 0 0 / 3%));
+  }
+
+  .search__empty-link {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /*
+   * `default_pagination` emits bare `<span>`s and `<a>`s with no wrapper of
+   * their own, so the spacing has to come from the container.
+   */
+  .search__pagination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .search__pagination a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .search__pagination a:hover,
+  .search__pagination a:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .search__pagination .current {
+    font-weight: 600;
   }
 {% endstylesheet %}
+
+{% javascript %}
+  // Two jobs, both of them upgrades on a form that already works: submit the
+  // results when the sort order changes, and fold the category the shopper is
+  // in back into `q` so searching again keeps it.
+  //
+  // The category has to travel inside `q` because storefront search has no
+  // filter parameter — see the note at the top of this section. With the script
+  // absent, a new search simply drops back to all products.
+  (() => {
+    function initSection(root) {
+      const form = root.querySelector('[data-search-form]');
+      if (!form) return;
+
+      const field = form.querySelector('[data-search-input]');
+      const sort = form.querySelector('[data-sort]');
+
+      // `requestSubmit` rather than `submit`: it fires the submit event, which
+      // is what folds the category back in below.
+      if (sort) sort.addEventListener('change', () => form.requestSubmit());
+
+      form.addEventListener('submit', (event) => {
+        const scope = root.dataset.scope;
+        if (!scope || !field) return;
+
+        // Built by hand rather than by letting the form serialise itself, so
+        // the visible field never has to hold the scoped query — the shopper
+        // would otherwise watch `product_type:"…"` appear in the box on submit.
+        event.preventDefault();
+
+        const params = new URLSearchParams(new FormData(form));
+        const terms = field.value.trim();
+        params.set('q', terms ? `${terms} ${scope}` : scope);
+
+        const url = new URL(form.getAttribute('action'), window.location.origin);
+        url.search = params.toString();
+        window.location.assign(url);
+      });
+    }
+
+    function start() {
+      document.querySelectorAll('[data-search-section]').forEach(initSection);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', start);
+    } else {
+      start();
+    }
+
+    // The theme editor swaps a section's markup wholesale when a setting
+    // changes, which would otherwise leave the new markup unbound.
+    document.addEventListener('shopify:section:load', (event) => {
+      event.target.querySelectorAll('[data-search-section]').forEach(initSection);
+    });
+  })();
+{% endjavascript %}
 
 {% schema %}
 {
   "name": "t:general.search",
-  "settings": []
+  "settings": [
+    {
+      "type": "link_list",
+      "id": "category_menu",
+      "label": "t:labels.filter_menu",
+      "info": "t:info.category_menu"
+    },
+    {
+      "type": "range",
+      "id": "products_per_page",
+      "label": "t:labels.products_per_page",
+      "info": "t:info.products_per_page",
+      "min": 6,
+      "max": 48,
+      "step": 2,
+      "default": 20
+    },
+    {
+      "type": "checkbox",
+      "id": "show_type",
+      "label": "t:labels.show_type",
+      "info": "t:info.show_type",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_sku",
+      "label": "t:labels.show_sku",
+      "info": "t:info.show_sku",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "subtitle_source",
+      "label": "t:labels.subtitle_source",
+      "info": "t:info.row_subtitle_source",
+      "default": "metafield",
+      "options": [
+        { "value": "metafield", "label": "t:options.subtitle_source.metafield" },
+        { "value": "product_type", "label": "t:options.subtitle_source.product_type" },
+        { "value": "variant_count", "label": "t:options.subtitle_source.variant_count" },
+        { "value": "vendor", "label": "t:options.subtitle_source.vendor" },
+        { "value": "none", "label": "t:options.subtitle_source.none" }
+      ]
+    },
+    {
+      "visible_if": "{{ section.settings.subtitle_source == 'metafield' }}",
+      "type": "text",
+      "id": "subtitle_metafield",
+      "label": "t:labels.subtitle_metafield",
+      "info": "t:info.subtitle_metafield",
+      "default": "custom.subtitle"
+    },
+    {
+      "type": "range",
+      "id": "variant_limit",
+      "label": "t:labels.variant_limit",
+      "info": "t:info.variant_limit",
+      "min": 5,
+      "max": 50,
+      "step": 5,
+      "default": 20
+    },
+    {
+      "type": "select",
+      "id": "after_add",
+      "label": "t:labels.after_add",
+      "info": "t:info.after_add",
+      "default": "stay",
+      "options": [
+        { "value": "stay", "label": "t:options.after_add.stay" },
+        { "value": "cart", "label": "t:options.after_add.cart" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.media"
+    },
+    {
+      "type": "range",
+      "id": "media_size",
+      "label": "t:labels.media_size",
+      "min": 56,
+      "max": 128,
+      "step": 4,
+      "unit": "px",
+      "default": 72
+    },
+    {
+      "type": "select",
+      "id": "media_fit",
+      "label": "t:labels.media_fit",
+      "info": "t:info.media_fit",
+      "default": "contain",
+      "options": [
+        { "value": "contain", "label": "t:options.media_fit.contain" },
+        { "value": "cover", "label": "t:options.media_fit.cover" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "panel_background_color",
+      "label": "t:labels.panel_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "media_background_color",
+      "label": "t:labels.media_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "category_active_color",
+      "label": "t:labels.category_active_color",
+      "default": "#D8E4DA"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "t:labels.accent_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "accent_text_color",
+      "label": "t:labels.accent_text_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  }
 }
 {% endschema %}
