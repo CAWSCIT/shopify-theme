@@ -57,10 +57,16 @@
   "customers": {
     "account": "Account",
     "login": {
+      "create_account": "Create an account",
       "email": "Email",
+      "forgot": "Forgot your password?",
+      "no_account": "New here?",
       "password": "Password",
+      "recover_note": "Give us the email address on your account and we'll send a link to set a new password.",
+      "recover_sent": "If that address has an account, a link to set a new password is on its way.",
+      "recover_submit": "Send the link",
       "submit": "Sign in",
-      "title": "Login"
+      "title": "Sign in"
     }
   },
   "collections": {

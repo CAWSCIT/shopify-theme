@@ -1,0 +1,368 @@
+{% comment %}
+  This section is used in the customer login template to render the sign-in
+  page and the password reset that goes with it.
+
+  It only renders on stores using classic customer accounts. With the newer
+  hosted accounts, Shopify's own login stands in and the header's account link
+  points at that instead.
+
+  https://shopify.dev/docs/storefronts/themes/architecture/templates/customers-login
+{% endcomment %}
+
+{% # Captured rather than rendered in place, so the state of the form inside can
+   # be read before it's written out: a shopper who has just asked for a reset
+   # link, or mistyped their address, needs the panel it lives in to be open. %}
+{%- capture recover_form -%}
+  {% form 'recover_customer_password' %}
+    {%- if form.posted_successfully? -%}
+      <p class="login__notice" role="status" data-recover-sent>{{ 'customers.login.recover_sent' | t }}</p>
+    {%- else -%}
+      <p class="login__note">{{ 'customers.login.recover_note' | t }}</p>
+
+      {%- if form.errors -%}
+        <div class="login__errors">{{ form.errors | default_errors }}</div>
+      {%- endif -%}
+
+      <div class="login__field">
+        <label class="login__label" for="recover-email">{{ 'customers.login.email' | t }}</label>
+        <input
+          class="login__input"
+          id="recover-email"
+          type="email"
+          name="email"
+          autocomplete="email"
+          autocapitalize="off"
+          required
+        >
+      </div>
+
+      <button type="submit" class="login__submit login__submit--quiet">
+        {{- 'customers.login.recover_submit' | t -}}
+      </button>
+    {%- endif -%}
+  {% endform %}
+{%- endcapture -%}
+
+{%- liquid
+  assign recover_open = false
+  if recover_form contains 'data-recover-sent'
+    assign recover_open = true
+  endif
+  if recover_form contains 'class="errors"'
+    assign recover_open = true
+  endif
+-%}
+
+<section
+  class="customer-login full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --login-muted: {{ section.settings.text_color | color_modify: 'alpha', 0.7 }};
+    --login-border: {{ section.settings.text_color | color_modify: 'alpha', 0.12 }};
+    --login-input-border: {{ section.settings.text_color | color_modify: 'alpha', 0.25 }};
+    --login-panel-bg: {{ section.settings.panel_background_color }};
+    --login-accent: {{ section.settings.accent_color }};
+    --login-button-bg: {{ section.settings.button_background_color }};
+    --login-button-text: {{ section.settings.button_text_color }};
+    --login-error: {{ section.settings.error_color }};
+  "
+>
+  <div class="mx-auto w-full max-w-[26rem] px-[var(--page-margin)] py-16 lg:py-20">
+    <h1 class="font-serif text-4xl leading-tight font-light lg:text-5xl">{{ 'customers.login.title' | t }}</h1>
+
+    {% form 'customer_login', class: 'login__form mt-8' %}
+      {%- if form.errors -%}
+        <div class="login__errors">{{ form.errors | default_errors }}</div>
+      {%- endif -%}
+
+      <div class="login__field">
+        <label class="login__label" for="{{ section.id }}-email">{{ 'customers.login.email' | t }}</label>
+        <input
+          class="login__input"
+          id="{{ section.id }}-email"
+          type="email"
+          name="customer[email]"
+          autocomplete="email"
+          autocapitalize="off"
+          autofocus
+          required
+        >
+      </div>
+
+      <div class="login__field mt-4">
+        <label class="login__label" for="{{ section.id }}-password">{{ 'customers.login.password' | t }}</label>
+        <input
+          class="login__input"
+          id="{{ section.id }}-password"
+          type="password"
+          name="customer[password]"
+          autocomplete="current-password"
+          required
+        >
+      </div>
+
+      <button type="submit" class="login__submit mt-6">{{ 'customers.login.submit' | t }}</button>
+    {% endform %}
+
+    {% # A `<details>` rather than a second page: the reset is one field, and
+       # opening it in place keeps a shopper who mistyped their password from
+       # losing their way. It works with the script off, which is the point. %}
+    <details
+      class="login__recover mt-8"
+      {% if recover_open %}
+        open
+      {% endif %}
+    >
+      <summary class="login__summary">{{ 'customers.login.forgot' | t }}</summary>
+
+      <div class="login__recover-body">
+        {{ recover_form }}
+      </div>
+    </details>
+
+    {%- if section.settings.show_register -%}
+      <p class="login__register mt-8 text-base leading-snug">
+        {{- 'customers.login.no_account' | t }}
+        <a class="login__link" href="{{ routes.account_register_url }}">
+          {{- 'customers.login.create_account' | t -}}
+        </a>
+      </p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  /*
+   * Centred in whatever height the layout hands down, with a floor for a short
+   * window — the same arrangement as the 404.
+   */
+  .customer-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50svh;
+  }
+
+  .login__note,
+  .login__register {
+    color: var(--login-muted, inherit);
+  }
+
+  .login__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .login__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .login__input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 1rem;
+    line-height: 1.25;
+    color: inherit;
+    background-color: var(--login-panel-bg, #ffffff);
+    border: 1px solid var(--login-input-border, rgb(0 0 0 / 25%));
+    border-radius: var(--style-border-radius-inputs, 2px);
+  }
+
+  /*
+   * The email field is autofocused, so its ring is the first thing anyone sees
+   * — worth having in the theme's colour rather than the browser's blue.
+   */
+  .login__input:focus-visible {
+    outline: 2px solid var(--login-accent, #0d463d);
+    outline-offset: 1px;
+  }
+
+  .login__submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.875rem 1.75rem;
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--login-button-text, #ffffff);
+    cursor: pointer;
+    background-color: var(--login-button-bg, #0d463d);
+    border: 0;
+    border-radius: var(--style-border-radius-inputs, 2px);
+    transition: opacity 150ms ease;
+  }
+
+  .login__submit:hover,
+  .login__submit:focus-visible {
+    opacity: 0.88;
+  }
+
+  /*
+   * The reset is the secondary action on the page, so it's outlined where
+   * signing in is filled.
+   */
+  .login__submit--quiet {
+    width: auto;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9375rem;
+    color: var(--login-accent, #0d463d);
+    background-color: transparent;
+    border: 1px solid var(--login-accent, #0d463d);
+  }
+
+  .login__submit--quiet:hover,
+  .login__submit--quiet:focus-visible {
+    color: var(--login-panel-bg, #ffffff);
+    background-color: var(--login-accent, #0d463d);
+    opacity: 1;
+  }
+
+  .login__recover {
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--login-border, rgb(0 0 0 / 12%));
+  }
+
+  .login__summary {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--login-accent, #0d463d);
+    cursor: pointer;
+    list-style: none;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .login__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .login__summary:hover,
+  .login__recover[open] > .login__summary {
+    text-decoration: none;
+  }
+
+  .login__recover-body {
+    margin-top: 1rem;
+  }
+
+  .login__note {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .login__note + .login__field,
+  .login__errors + .login__field {
+    margin-top: 1rem;
+  }
+
+  .login__field + .login__submit {
+    margin-top: 1rem;
+  }
+
+  .login__notice {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--login-accent, #0d463d);
+  }
+
+  .login__errors {
+    margin-bottom: 1rem;
+  }
+
+  /*
+   * `default_errors` writes a bare `<ul class="errors">`, so this is the only
+   * place its wording can be styled from.
+   */
+  .login__errors .errors {
+    padding: 0;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--login-error, #a5361a);
+    list-style: none;
+  }
+
+  .login__link {
+    color: var(--login-accent, #0d463d);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .login__link:hover,
+  .login__link:focus-visible {
+    text-decoration: none;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:general.login",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_register",
+      "label": "t:labels.show_register",
+      "info": "t:info.show_register",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "panel_background_color",
+      "label": "t:labels.panel_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "t:labels.accent_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "button_background_color",
+      "label": "t:labels.button_background_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "t:labels.button_text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "error_color",
+      "label": "t:labels.error_color",
+      "default": "#A5361A"
+    }
+  ],
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  }
+}
+{% endschema %}
