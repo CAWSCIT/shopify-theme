@@ -2,22 +2,144 @@
   This section is used in the 404 template to render page shown when customers
   enter an invalid store URL.
 
+  Unlike the password page this one sits between the header and the footer, so
+  it takes its height from the layout — `main` hands the leftover space to the
+  section that ends the page, and this centres its content in whatever it gets.
+
   https://shopify.dev/docs/storefronts/themes/architecture/templates/404
 {% endcomment %}
 
-<h1>{{ '404.title' | t }}</h1>
+{%- liquid
+  assign button_url = section.settings.button_url | default: routes.all_products_collection_url
+-%}
 
-<p>
-  {{ '404.not_found' | t }}
-</p>
+<section
+  class="error-404 full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --error-code: {{ section.settings.code_color }};
+    --error-button-bg: {{ section.settings.button_background_color }};
+    --error-button-text: {{ section.settings.button_text_color }};
+  "
+>
+  <div class="mx-auto flex w-full max-w-[32rem] flex-col items-center px-[var(--page-margin)] py-16 text-center lg:py-24">
+    <p class="error-404__code font-serif leading-none font-light" aria-hidden="true">
+      {{- '404.title' | t -}}
+    </p>
 
-<a href="{{ routes.all_products_collection_url }}">
-  {{ '404.back_to_shopping' | t }}
-</a>
+    {% # The code above is decorative — the heading is what's announced. %}
+    <h1 class="error-404__heading mt-4 text-2xl leading-tight font-semibold text-balance lg:text-3xl">
+      {{- '404.not_found' | t -}}
+    </h1>
+
+    {%- if section.settings.text != blank -%}
+      <p class="error-404__text mt-3 text-base leading-relaxed">{{ section.settings.text }}</p>
+    {%- endif -%}
+
+    <a class="error-404__button mt-8" href="{{ button_url }}">{{ '404.back_to_shopping' | t }}</a>
+  </div>
+</section>
+
+{% stylesheet %}
+  /*
+   * Centred in whatever height the layout hands down. `min-height` is a floor
+   * for the case where the leftover space is small — a short window, or a
+   * template that puts another section under this one.
+   */
+  .error-404 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50svh;
+  }
+
+  /*
+   * Big enough to read as a graphic rather than a number, and set in the serif
+   * so it belongs to the same family as the page headings.
+   */
+  .error-404__code {
+    font-size: clamp(5rem, 18vw, 10rem);
+    color: var(--error-code, inherit);
+  }
+
+  .error-404__text {
+    opacity: 0.7;
+  }
+
+  .error-404__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.875rem 1.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--error-button-text, #ffffff);
+    text-decoration: none;
+    background-color: var(--error-button-bg, #0d463d);
+    border-radius: var(--style-border-radius-inputs, 2px);
+    transition: opacity 150ms ease;
+  }
+
+  .error-404__button:hover,
+  .error-404__button:focus-visible {
+    opacity: 0.88;
+  }
+{% endstylesheet %}
 
 {% schema %}
 {
   "name": "t:general.404",
-  "settings": []
+  "settings": [
+    {
+      "type": "text",
+      "id": "text",
+      "label": "t:labels.text",
+      "info": "t:info.error_text"
+    },
+    {
+      "type": "url",
+      "id": "button_url",
+      "label": "t:labels.link_url",
+      "info": "t:info.error_button_url"
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "code_color",
+      "label": "t:labels.code_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "button_background_color",
+      "label": "t:labels.button_background_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "t:labels.button_text_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  }
 }
 {% endschema %}
