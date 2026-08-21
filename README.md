@@ -36,11 +36,31 @@ shopify theme init
 
 ### Preview
 
-Preview this theme using Shopify CLI:
+Run the dev server, which builds the Tailwind bundle on change and serves the
+theme:
 
 ```bash
-shopify theme dev
+npm run dev
 ```
+
+It runs `shopify theme dev --theme-editor-sync --reconciliation-strategy keep-remote`.
+
+Both flags matter. On its own, `shopify theme dev` *replaces* the development
+theme with your local files — so anything arranged in the theme editor is
+overwritten on the next sync. That costs you the home page in particular, since
+`templates/index.json` is the whole of its content, along with anything set
+under Theme settings, which lives in `config/settings_data.json`. Page, product
+and blog content is safe either way: it lives in the Shopify admin rather than
+in the theme.
+
+`--theme-editor-sync` brings editor changes back into the local JSON files, so
+they can be reviewed and committed like anything else. `--reconciliation-strategy`
+decides what happens when a JSON file changed on both sides since the last sync;
+without it the CLI stops to ask, which it can't usefully do while sharing a
+terminal with Vite. `keep-remote` gives the editor the last word on those files,
+which is the right way round for the merchant-owned ones — and git has your copy
+if it ever takes the wrong one. Swap it for `keep-local` if you'd rather code
+always win.
 
 ## Theme architecture
 

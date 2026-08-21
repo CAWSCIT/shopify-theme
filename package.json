@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "concurrently -n vite,shopify -c cyan,green \"npm:dev:assets\" \"npm:dev:theme\"",
     "dev:assets": "vite build --watch --mode development",
-    "dev:theme": "shopify theme dev",
+    "dev:theme": "shopify theme dev --theme-editor-sync --reconciliation-strategy keep-remote",
     "build": "vite build",
     "clean": "rm -f assets/theme.css assets/theme.js"
   },
