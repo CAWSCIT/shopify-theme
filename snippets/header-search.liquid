@@ -13,9 +13,16 @@
 
 {%- liquid
   # The search page keeps its category filter inside `q`, as a
-  # `product_type:"…"` term. Showing that raw would put markup the shopper
-  # never typed into the header field, so it's trimmed back off here.
-  assign terms = search.terms | split: 'product_type:"' | first | strip
+  # `product_type:"…"` term. Showing that raw would put syntax the shopper never
+  # typed into the header field, so it's trimmed back off here.
+  #
+  # `search.terms` comes back HTML-escaped, so it's decoded first — `&amp;` last,
+  # for the reason set out in `sections/search.liquid`.
+  assign decoded_terms = search.terms | replace: '&quot;', '"' | replace: '&#34;', '"'
+  assign decoded_terms = decoded_terms | replace: '&#39;', "'" | replace: '&lt;', '<'
+  assign decoded_terms = decoded_terms | replace: '&gt;', '>' | replace: '&amp;', '&'
+
+  assign terms = decoded_terms | split: 'product_type:' | first | strip
 -%}
 
 <form

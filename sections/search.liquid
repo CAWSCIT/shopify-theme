@@ -8,18 +8,43 @@
 {%- liquid
   # Storefront search has no filter parameter of its own: a category is a
   # field-scoped term inside `q`, in the form `product_type:"Keytags"`. It's
-  # always appended last and in this exact shape, so it can be lifted back out
-  # here — the search box then shows only what the shopper typed.
+  # appended last and lifted back out here, so the search box shows only what
+  # the shopper typed.
   #
-  # `split` returns the whole string as one part when the separator isn't
-  # there, which is what makes the unscoped case fall out of the same code.
-  assign scope_field = 'product_type:"'
-  assign query_parts = search.terms | split: scope_field
+  # `search.terms` comes back HTML-escaped, so the quotes around the category
+  # arrive as `&quot;` and have to be decoded before anything reads them.
+  # `&amp;` is decoded last: taking it first would turn a genuinely escaped
+  # `&amp;quot;` into a quote the shopper never searched for.
+  assign decoded_terms = search.terms | replace: '&quot;', '"' | replace: '&#34;', '"'
+  assign decoded_terms = decoded_terms | replace: '&#39;', "'" | replace: '&lt;', '<'
+  assign decoded_terms = decoded_terms | replace: '&gt;', '>' | replace: '&amp;', '&'
+
+  # Split on the field name rather than on the whole `product_type:"` opener, so
+  # a scope written any way at all — quoted, unquoted, or left in the box by an
+  # older link — comes back out of the visible terms.
+  #
+  # `split` returns the whole string as one part when the separator isn't there,
+  # which is what makes the unscoped case fall out of the same code. Taking
+  # `first` is also what holds the page to one category at a time: a query that
+  # somehow carries two scopes keeps the first and drops the rest.
+  assign scope_field = 'product_type:'
+  assign query_parts = decoded_terms | split: scope_field
   assign terms = query_parts.first | strip
 
   assign active_category = ''
   if query_parts.size > 1
-    assign active_category = query_parts[1] | split: '"' | first
+    assign raw_scope = query_parts[1] | strip
+    assign opening_mark = raw_scope | slice: 0
+
+    if opening_mark == '"'
+      # `product_type:"Gift cards"` — everything up to the closing quote, so a
+      # category whose name has a space in it survives.
+      assign active_category = raw_scope | remove_first: '"' | split: '"' | first
+    else
+      # `product_type:Books`, hand-typed into the box. An unquoted term ends at
+      # the first space.
+      assign active_category = raw_scope | split: ' ' | first
+    endif
   endif
 
   # A hand-ordered menu beats alphabetical when the categories have an obvious
@@ -58,7 +83,7 @@
   class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
   data-search-section
   {% if active_category != blank %}
-    data-scope="{{ scope_field | append: active_category | append: '"' | escape }}"
+    data-scope="{{ scope_field | append: '"' | append: active_category | append: '"' | escape }}"
   {% endif %}
   style="
     --section-bg: {{ section.settings.background_color }};
@@ -105,7 +130,7 @@
 
           {%- for category in categories -%}
             {%- liquid
-              assign scoped_query = terms | append: ' ' | append: scope_field | append: category | append: '"' | strip | url_encode
+              assign scoped_query = terms | append: ' ' | append: scope_field | append: '"' | append: category | append: '"' | strip | url_encode
               assign category_href = routes.search_url | append: '?q=' | append: scoped_query | append: search_params
 
               assign is_active = false
