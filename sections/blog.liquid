@@ -5,31 +5,396 @@
   https://shopify.dev/docs/storefronts/themes/architecture/templates/blog
 {% endcomment %}
 
-<h1>{{ blog.title }}</h1>
+{%- liquid
+  # The thumbnail is a third of the row from `md` up and the full width below,
+  # which is what the two entries in `sizes` describe.
+  assign media_sizes = '(min-width: 48rem) 20rem, 100vw'
 
-{% paginate blog.articles by 5 %}
-  {% for article in blog.articles %}
-    <div>
-      {% if article.image %}
-        {{ article.image | image_url: width: 1000 | image_tag }}
-      {% endif %}
-      <h2>
-        {{ article.title | link_to: article.url }}
-      </h2>
-      {% assign date = article.published_at | time_tag: format: 'date' %}
-      <p>{{ 'blog.article_metadata_html' | t: date: date, author: article.author }}</p>
-      <p>{{ article.excerpt }}</p>
-    </div>
-  {% endfor %}
+  assign has_tags = false
+  if section.settings.show_tags
+    if blog.all_tags.size > 0
+      assign has_tags = true
+    endif
+  endif
+-%}
 
-  {%- if paginate.pages > 1 -%}
-    {{- paginate | default_pagination -}}
-  {%- endif -%}
-{% endpaginate %}
+<section
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --blog-border: {{ section.settings.text_color | color_modify: 'alpha', 0.12 }};
+    --blog-hover: {{ section.settings.text_color | color_modify: 'alpha', 0.03 }};
+    --blog-accent: {{ section.settings.accent_color }};
+    --blog-accent-text: {{ section.settings.accent_text_color }};
+    --blog-media-bg: {{ section.settings.media_background_color }};
+    --blog-media-aspect: {{ section.settings.media_aspect_ratio }};
+    --blog-panel-bg: {{ section.settings.panel_background_color }};
+  "
+>
+  <div class="mx-auto max-w-[60rem] px-[var(--page-margin)] py-8 lg:py-12">
+    <h1 class="font-serif text-4xl leading-tight font-light lg:text-5xl">{{ blog.title }}</h1>
+
+    {%- if has_tags -%}
+      <nav class="mt-6 flex flex-wrap gap-2" aria-label="{{ 'blog.tags' | t }}">
+        {%- liquid
+          assign showing_all = false
+          if current_tags == blank
+            assign showing_all = true
+          endif
+        -%}
+
+        <a
+          class="blog__pill {% if showing_all %}blog__pill--active{% endif %}"
+          href="{{ blog.url }}"
+          {% if showing_all %}
+            aria-current="page"
+          {% endif %}
+        >
+          {{- 'blog.all_articles' | t -}}
+        </a>
+
+        {%- for tag in blog.all_tags -%}
+          {%- liquid
+            assign is_active = false
+            if current_tags contains tag
+              assign is_active = true
+            endif
+          -%}
+
+          <a
+            class="blog__pill {% if is_active %}blog__pill--active{% endif %}"
+            href="{{ blog.url }}/tagged/{{ tag | handleize }}"
+            {% if is_active %}
+              aria-current="page"
+            {% endif %}
+          >
+            {{- tag -}}
+          </a>
+        {%- endfor -%}
+      </nav>
+    {%- endif -%}
+
+    {%- paginate blog.articles by section.settings.articles_per_page -%}
+      {%- if blog.articles.size > 0 -%}
+        <ul role="list" class="blog__list mt-8 list-none pl-0">
+          {%- for article in blog.articles -%}
+            <li class="blog__item">
+              {%- if section.settings.show_image -%}
+                {%- if article.image != blank -%}
+                  {% # The title beside it links to the same place, so this is
+                     # hidden rather than read out a second time. %}
+                  <a class="blog__media" href="{{ article.url }}" tabindex="-1" aria-hidden="true">
+                    {{
+                      article.image
+                      | image_url: width: 800
+                      | image_tag:
+                        widths: '300, 400, 600, 800',
+                        sizes: media_sizes,
+                        loading: 'lazy',
+                        class: 'blog__image'
+                    }}
+                  </a>
+                {%- endif -%}
+              {%- endif -%}
+
+              <div class="blog__body">
+                {%- if section.settings.show_meta -%}
+                  {%- assign date = article.published_at | time_tag: format: 'date' -%}
+                  <p class="blog__meta text-sm leading-snug">
+                    {{- 'blog.article_metadata_html' | t: date: date, author: article.author -}}
+                  </p>
+                {%- endif -%}
+
+                <h2 class="blog__title font-serif text-2xl leading-tight font-normal lg:text-3xl">
+                  <a class="blog__link" href="{{ article.url }}">{{ article.title }}</a>
+                </h2>
+
+                {%- if section.settings.show_excerpt -%}
+                  {%- assign excerpt = article.excerpt_or_content | strip_html | truncatewords: section.settings.excerpt_words -%}
+                  {%- if excerpt != blank -%}
+                    <p class="blog__excerpt text-base leading-relaxed">{{ excerpt }}</p>
+                  {%- endif -%}
+                {%- endif -%}
+
+                <p class="blog__more text-sm leading-snug" aria-hidden="true">{{ 'blog.read_more' | t }}</p>
+              </div>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- else -%}
+        <p class="blog__empty mt-8 text-base leading-snug">{{ 'blog.empty' | t }}</p>
+      {%- endif -%}
+
+      {%- if paginate.pages > 1 -%}
+        <nav class="blog__pagination mt-8" aria-label="{{ 'collections.pagination' | t }}">
+          {{ paginate | default_pagination }}
+        </nav>
+      {%- endif -%}
+    {%- endpaginate -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  .blog__meta,
+  .blog__excerpt,
+  .blog__empty {
+    opacity: 0.7;
+  }
+
+  /*
+   * The active pill inverts rather than just changing weight, so which topic
+   * you're reading is readable at a glance from across the row.
+   */
+  .blog__pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1.125rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+    background-color: var(--blog-panel-bg, #ffffff);
+    border: 1px solid var(--blog-border, rgb(0 0 0 / 12%));
+    border-radius: 999px;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .blog__pill:hover,
+  .blog__pill:focus-visible {
+    border-color: var(--blog-accent, #0d463d);
+  }
+
+  .blog__pill--active,
+  .blog__pill--active:hover {
+    color: var(--blog-accent-text, #ffffff);
+    background-color: var(--blog-accent, #0d463d);
+    border-color: var(--blog-accent, #0d463d);
+  }
+
+  /*
+   * Hairlines between articles rather than cards, the same as the product list
+   * — the thumbnail is the only thing that needs a box around it.
+   */
+  .blog__item {
+    display: grid;
+    gap: 1rem;
+    padding: 1.75rem 0;
+    border-bottom: 1px solid var(--blog-border, rgb(0 0 0 / 12%));
+  }
+
+  .blog__item:first-child {
+    padding-top: 0;
+  }
+
+  @media screen and (min-width: 48rem) {
+    .blog__item {
+      gap: 2rem;
+      grid-template-columns: 20rem minmax(0, 1fr);
+      align-items: start;
+    }
+
+    /* An article with no image gives its column back to the text. */
+    .blog__item:not(:has(.blog__media)) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .blog__media {
+    display: block;
+    overflow: hidden;
+    background-color: var(--blog-media-bg, rgb(0 0 0 / 4%));
+    border-radius: 2px;
+  }
+
+  /*
+   * Unlayered, so this beats the `height: auto` that `critical.css` sets on
+   * every image from `@layer reset`.
+   */
+  .blog__image {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: var(--blog-media-aspect, 3 / 2);
+    object-fit: cover;
+    transition: opacity 150ms ease;
+  }
+
+  .blog__media:hover .blog__image {
+    opacity: 0.85;
+  }
+
+  .blog__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .blog__link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .blog__link:hover,
+  .blog__link:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /*
+   * A prompt rather than a second link: the title above already goes there, and
+   * two links to one article is one more than a keyboard needs to tab past.
+   */
+  .blog__more {
+    color: var(--blog-accent, #0d463d);
+    font-weight: 500;
+  }
+
+  .blog__item:hover .blog__more {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /*
+   * `default_pagination` emits bare `<span>`s and `<a>`s with no wrapper of
+   * their own, so the spacing has to come from the container.
+   */
+  .blog__pagination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .blog__pagination a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .blog__pagination a:hover,
+  .blog__pagination a:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .blog__pagination .current {
+    font-weight: 600;
+  }
+{% endstylesheet %}
 
 {% schema %}
 {
   "name": "t:general.blog",
-  "settings": []
+  "settings": [
+    {
+      "type": "range",
+      "id": "articles_per_page",
+      "label": "t:labels.articles_per_page",
+      "min": 3,
+      "max": 24,
+      "step": 1,
+      "default": 10
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tags",
+      "label": "t:labels.show_tags",
+      "info": "t:info.blog_tags",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_meta",
+      "label": "t:labels.show_meta",
+      "info": "t:info.blog_meta",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_excerpt",
+      "label": "t:labels.show_excerpt",
+      "default": true
+    },
+    {
+      "visible_if": "{{ section.settings.show_excerpt }}",
+      "type": "range",
+      "id": "excerpt_words",
+      "label": "t:labels.excerpt_words",
+      "min": 10,
+      "max": 60,
+      "step": 2,
+      "default": 28
+    },
+    {
+      "type": "header",
+      "content": "t:general.media"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_image",
+      "label": "t:labels.show_image",
+      "default": true
+    },
+    {
+      "visible_if": "{{ section.settings.show_image }}",
+      "type": "select",
+      "id": "media_aspect_ratio",
+      "label": "t:labels.media_aspect_ratio",
+      "default": "3 / 2",
+      "options": [
+        { "value": "3 / 2", "label": "t:options.aspect_ratio.landscape" },
+        { "value": "1 / 1", "label": "t:options.aspect_ratio.square" },
+        { "value": "16 / 9", "label": "t:options.aspect_ratio.wide" }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "panel_background_color",
+      "label": "t:labels.panel_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "media_background_color",
+      "label": "t:labels.media_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "t:labels.accent_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "accent_text_color",
+      "label": "t:labels.accent_text_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  }
 }
 {% endschema %}

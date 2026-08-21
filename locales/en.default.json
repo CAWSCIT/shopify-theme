@@ -5,13 +5,24 @@
     "back_to_shopping": "Back to shopping"
   },
   "blog": {
+    "all_articles": "All articles",
     "article_comments": "Comments",
     "article_metadata_html": "{{ date }} by {{ author }}",
     "comment_form_body": "Comment",
     "comment_form_email": "Email",
     "comment_form_name": "Name",
-    "comment_form_submit": "Post",
-    "comment_form_title": "Add a comment"
+    "comment_form_submit": "Post comment",
+    "comment_form_title": "Add a comment",
+    "comment_moderated": "Comments are read before they appear.",
+    "comment_pending": "Thanks — your comment will appear once it's been read.",
+    "comment_posted": "Thanks — your comment has been posted.",
+    "empty": "Nothing posted here yet.",
+    "read_more": "Read article",
+    "tags": "Topics",
+    "comment_count": {
+      "one": "{{ count }} comment",
+      "other": "{{ count }} comments"
+    }
   },
   "cart": {
     "checkout": "Check out",

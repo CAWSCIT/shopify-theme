@@ -1,0 +1,183 @@
+{% doc %}
+  Renders a block of merchant-written HTML — a page's content, an article's
+  body — with the theme's prose styling.
+
+  It all comes out of the Shopify editor as bare tags that can't carry utility
+  classes, so every element is styled from the stylesheet below. Anything the
+  merchant pastes in beyond these tags renders as-is.
+
+  Colours are read from custom properties set on a parent, so a section can
+  theme it alongside its own markup: `--prose-rule`, `--prose-button-bg` and
+  `--prose-button-text`. Each has a fallback, so the block also stands on its
+  own.
+
+  @param {string} content - The HTML to render
+  @param {string} [classes] - Extra classes for the wrapper
+
+  @example
+  {% render 'rich-text', content: page.content %}
+  {% render 'rich-text', content: article.content, classes: 'mt-8' %}
+{% enddoc %}
+
+<div class="rich-text {{ classes }}">
+  {{ content }}
+</div>
+
+{% stylesheet %}
+  /*
+   * 18px, and a line height to match: this is the one place in the theme given
+   * over to reading rather than scanning.
+   */
+  .rich-text {
+    font-size: 1.125rem;
+    line-height: 1.7;
+  }
+
+  .rich-text > * + * {
+    margin-top: 1.25rem;
+  }
+
+  /*
+   * A heading opens a new part of the page, so it takes more room above it than
+   * a paragraph does — but not when it's the first thing in the content.
+   */
+  .rich-text > * + :is(h1, h2, h3, h4, h5, h6) {
+    margin-top: 2.5rem;
+  }
+
+  /*
+   * The fallback matters: `--font-serif` is a Tailwind theme token, and Tailwind
+   * only emits the ones something in the theme actually uses.
+   */
+  .rich-text :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--font-serif, Newsreader, ui-serif, Georgia, serif);
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .rich-text h1 {
+    font-size: 2.25rem;
+  }
+
+  .rich-text h2 {
+    font-size: 1.75rem;
+  }
+
+  .rich-text h3 {
+    font-size: 1.375rem;
+  }
+
+  .rich-text h4 {
+    font-size: 1.1875rem;
+  }
+
+  .rich-text :is(h5, h6) {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  /*
+   * Underlined at rest and not on hover, so a link reads as one in a block of
+   * text without the page turning into a field of moving underlines.
+   */
+  .rich-text a:not(.button) {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .rich-text a:not(.button):hover,
+  .rich-text a:not(.button):focus-visible {
+    text-decoration: none;
+  }
+
+  /*
+   * Unlayered, so this beats the `height: auto` that `critical.css` sets on
+   * every image from `@layer reset`. Full width on a phone, where 80% would
+   * only waste the little space there is.
+   */
+  .rich-text img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  @media screen and (min-width: 48rem) {
+    .rich-text img {
+      width: 80%;
+    }
+  }
+
+  .rich-text :is(ul, ol) {
+    padding-left: 1.5rem;
+  }
+
+  .rich-text ul {
+    list-style: disc;
+  }
+
+  .rich-text ol {
+    list-style: decimal;
+  }
+
+  .rich-text li + li {
+    margin-top: 0.5rem;
+  }
+
+  .rich-text blockquote {
+    padding-left: 1.5rem;
+    font-family: var(--font-serif, Newsreader, ui-serif, Georgia, serif);
+    font-style: italic;
+    border-left: 2px solid var(--prose-rule, rgb(0 0 0 / 15%));
+  }
+
+  .rich-text hr {
+    height: 0;
+    margin-block: 2.5rem;
+    border: 0;
+    border-top: 1px solid var(--prose-rule, rgb(0 0 0 / 15%));
+  }
+
+  .rich-text table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .rich-text :is(th, td) {
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--prose-rule, rgb(0 0 0 / 15%));
+  }
+
+  .rich-text th {
+    font-weight: 600;
+  }
+
+  /*
+   * The page editor writes no buttons of its own, so these are for markup the
+   * merchant adds by hand — a `<button>`, or a link given `class="button"`.
+   */
+  .rich-text :is(button, .button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.875rem 1.75rem;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--prose-button-text, #ffffff);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    background-color: var(--prose-button-bg, #0d463d);
+    border: 0;
+    border-radius: var(--style-border-radius-inputs, 2px);
+    transition: opacity 150ms ease;
+  }
+
+  .rich-text :is(button, .button):hover,
+  .rich-text :is(button, .button):focus-visible {
+    opacity: 0.88;
+  }
+{% endstylesheet %}
