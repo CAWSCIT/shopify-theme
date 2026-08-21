@@ -1,0 +1,105 @@
+{% doc %}
+  Renders one consent category in the cookie preferences dialog: a checkbox,
+  the category name, and a line saying what turning it on allows.
+
+  `id` is the Customer Privacy API's own consent key, and is what the dialog's
+  script reads back off the checkbox — so it has to stay one of `analytics`,
+  `marketing`, `preferences` or `sale_of_data`. The one exception is the
+  strictly necessary row, which is passed `locked`: it renders checked and
+  disabled, because there's no consent to give for the cookies the cart and
+  checkout can't work without.
+
+  @param {string} id - The consent key, or `necessary` for the locked row
+  @param {string} label - The category name
+  @param {string} note - One line on what the category covers
+  @param {boolean} [locked] - Renders the row checked and not changeable
+
+  @example
+  {% assign label = 'cookies.analytics' | t %}
+  {% assign note = 'cookies.analytics_note' | t %}
+  {% render 'cookie-option', id: 'analytics', label: label, note: note %}
+{% enddoc %}
+
+<div class="cookie-option" data-cookie-row="{{ id }}">
+  <input
+    class="cookie-option__input"
+    type="checkbox"
+    id="cookie-option-{{ id }}"
+    data-cookie-option="{{ id }}"
+    {% if locked %}
+      checked
+      disabled
+    {% endif %}
+  >
+
+  <span class="cookie-option__text">
+    <label class="cookie-option__label" for="cookie-option-{{ id }}">{{ label }}</label>
+    <span class="cookie-option__note">{{ note }}</span>
+  </span>
+</div>
+
+{% stylesheet %}
+  /*
+   * Colours come from `--cookie-*` properties set by the section around it,
+   * each with a fallback so the row still reads on its own.
+   */
+  .cookie-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 0.75rem;
+  }
+
+  .cookie-option[hidden] {
+    display: none;
+  }
+
+  .cookie-option__input {
+    width: 1.125rem;
+    height: 1.125rem;
+    margin: 0;
+    /* Nudged down to sit on the label's cap height rather than its line box. */
+    margin-block-start: 0.125rem;
+    accent-color: var(--cookie-accent, #0d463d);
+    cursor: pointer;
+  }
+
+  /*
+   * The necessary row is disabled rather than absent, so it's clear what the
+   * shop sets regardless. Dimming it is the only thing marking it as fixed.
+   */
+  .cookie-option__input:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  .cookie-option__input:focus-visible {
+    outline: 2px solid var(--cookie-accent, #0d463d);
+    outline-offset: 2px;
+  }
+
+  .cookie-option__text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .cookie-option__label {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.35;
+    cursor: pointer;
+  }
+
+  .cookie-option__input:disabled + .cookie-option__text .cookie-option__label {
+    cursor: default;
+  }
+
+  .cookie-option__note {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--cookie-muted, inherit);
+    text-wrap: pretty;
+  }
+{% endstylesheet %}

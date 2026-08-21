@@ -1,0 +1,738 @@
+{%- liquid
+  # The banner is only worth showing once it says something, and the whole
+  # point of it is the message — an empty one would be a row of buttons asking
+  # the shopper to agree to nothing.
+  assign message = section.settings.message
+
+  assign has_policy = false
+  if section.settings.policy_url != blank
+    if section.settings.policy_label != blank
+      assign has_policy = true
+    endif
+  endif
+
+  # The `render` tag won't take a filtered argument, so the dialog's category
+  # wording is translated up here and handed over as plain strings.
+  assign necessary_label = 'cookies.necessary' | t
+  assign necessary_note = 'cookies.necessary_note' | t
+  assign preferences_label = 'cookies.preferences' | t
+  assign preferences_note = 'cookies.preferences_note' | t
+  assign analytics_label = 'cookies.analytics' | t
+  assign analytics_note = 'cookies.analytics_note' | t
+  assign marketing_label = 'cookies.marketing' | t
+  assign marketing_note = 'cookies.marketing_note' | t
+  assign sale_of_data_label = 'cookies.sale_of_data' | t
+  assign sale_of_data_note = 'cookies.sale_of_data_note' | t
+-%}
+
+{%- if message != blank -%}
+  {% # Both halves sit in one wrapper so the colour settings reach the dialog
+     # too. `display: contents` keeps the wrapper out of the section grid —
+     # everything inside it is either fixed or in the top layer, so a grid row
+     # of its own would only add an empty band to the page. %}
+  <div
+    class="cookie-consent"
+    style="
+      --cookie-bg: {{ section.settings.background_color }};
+      --cookie-text: {{ section.settings.text_color }};
+      --cookie-muted: {{ section.settings.text_color | color_modify: 'alpha', 0.7 }};
+      --cookie-border: {{ section.settings.text_color | color_modify: 'alpha', 0.15 }};
+      --cookie-accent: {{ section.settings.button_background_color }};
+      --cookie-accent-text: {{ section.settings.button_text_color }};
+    "
+  >
+    <aside
+      class="cookie-banner"
+      aria-label="{{ 'cookies.banner_label' | t }}"
+      data-cookie-banner
+      hidden
+    >
+      <div class="cookie-banner__panel">
+        <div class="cookie-banner__copy">
+          {%- if section.settings.heading != blank -%}
+            <h2 class="cookie-banner__heading">{{ section.settings.heading }}</h2>
+          {%- endif -%}
+
+          <div class="cookie-banner__message">{{ message }}</div>
+
+          {%- if has_policy -%}
+            <a class="cookie-banner__policy" href="{{ section.settings.policy_url }}">
+              {{- section.settings.policy_label -}}
+            </a>
+          {%- endif -%}
+        </div>
+
+        <div class="cookie-banner__actions">
+          <button class="cookie-button cookie-button--quiet" type="button" data-cookie-customize>
+            {{- 'cookies.customize' | t -}}
+          </button>
+
+          <button class="cookie-button cookie-button--outline" type="button" data-cookie-decline>
+            {{- 'cookies.decline' | t -}}
+          </button>
+
+          <button class="cookie-button cookie-button--solid" type="button" data-cookie-accept>
+            {{- 'cookies.accept' | t -}}
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <dialog
+      class="cookie-dialog"
+      aria-labelledby="cookie-dialog-title"
+      data-cookie-dialog
+      scroll-lock
+    >
+      {% # `method="dialog"` closes the dialog on submit and hands the pressed
+         # button's value to `returnValue`, which is how the script tells a save
+         # from a cancel — no submit handler, and Escape lands on the same path
+         # as Cancel. %}
+      <form class="cookie-dialog__form" method="dialog">
+        <h2 class="cookie-dialog__heading" id="cookie-dialog-title">{{ 'cookies.title' | t }}</h2>
+
+        <p class="cookie-dialog__intro">{{ 'cookies.intro' | t }}</p>
+
+        <div class="cookie-dialog__options">
+          {% render 'cookie-option',
+            id: 'necessary',
+            label: necessary_label,
+            note: necessary_note,
+            locked: true
+          %}
+
+          {% render 'cookie-option',
+            id: 'preferences',
+            label: preferences_label,
+            note: preferences_note
+          %}
+
+          {% render 'cookie-option',
+            id: 'analytics',
+            label: analytics_label,
+            note: analytics_note
+          %}
+
+          {% render 'cookie-option',
+            id: 'marketing',
+            label: marketing_label,
+            note: marketing_note
+          %}
+
+          {% # Only shown where selling personal information is a decision the
+             # shopper gets to make — the script hides it everywhere else, and
+             # leaves that consent untouched rather than recording an answer to
+             # a question it never asked. %}
+          {% render 'cookie-option',
+            id: 'sale_of_data',
+            label: sale_of_data_label,
+            note: sale_of_data_note
+          %}
+        </div>
+
+        {%- if has_policy -%}
+          <a class="cookie-dialog__policy" href="{{ section.settings.policy_url }}">
+            {{- section.settings.policy_label -}}
+          </a>
+        {%- endif -%}
+
+        <div class="cookie-dialog__actions">
+          <button class="cookie-button cookie-button--outline" type="submit" value="cancel">
+            {{- 'cookies.cancel' | t -}}
+          </button>
+
+          <button class="cookie-button cookie-button--solid" type="submit" value="save">
+            {{- 'cookies.save' | t -}}
+          </button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+{%- endif -%}
+
+{% stylesheet %}
+  .cookie-consent {
+    display: contents;
+  }
+
+  /*
+   * The banner is fixed to the bottom of the viewport rather than placed in the
+   * page: it has to be reachable from anywhere on a long page, and it sits in
+   * the footer group, which on most pages is a scroll away.
+   *
+   * The outer element only supplies the margin, and lets clicks through it —
+   * otherwise an invisible strip across the bottom of every page would swallow
+   * taps on whatever the panel doesn't cover.
+   */
+  .cookie-banner {
+    position: fixed;
+    z-index: 60;
+    inset-inline: 0;
+    inset-block-end: 0;
+    padding: var(--page-margin);
+    pointer-events: none;
+  }
+
+  .cookie-banner[hidden] {
+    display: none;
+  }
+
+  /*
+   * Slides up on arrival so it's noticed without covering the page it's
+   * interrupting. The transition sits on the panel rather than the fixed
+   * wrapper, which keeps the shadow from being clipped mid-slide.
+   */
+  .cookie-banner__panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: var(--page-width);
+    margin-inline: auto;
+    padding: 1.25rem;
+    color: var(--cookie-text);
+    background-color: var(--cookie-bg);
+    border: 1px solid var(--cookie-border);
+    border-radius: var(--style-border-radius-inputs);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 18%);
+    opacity: 0;
+    transition:
+      opacity 200ms ease,
+      transform 200ms ease;
+    transform: translateY(0.75rem);
+    pointer-events: auto;
+  }
+
+  .cookie-banner[data-cookie-shown] .cookie-banner__panel {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cookie-banner__panel {
+      transition: none;
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .cookie-banner__panel {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      padding: 1.25rem 1.5rem;
+    }
+  }
+
+  .cookie-banner__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .cookie-banner__heading {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .cookie-banner__message {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--cookie-muted);
+    text-wrap: pretty;
+  }
+
+  /*
+   * Links come out of the `richtext` setting as bare `<a>` tags, so they can't
+   * carry classes of their own and are styled from here — same as the alert
+   * bar's message.
+   */
+  .cookie-banner__message a,
+  .cookie-banner__policy,
+  .cookie-dialog__policy {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .cookie-banner__message a:hover,
+  .cookie-banner__message a:focus-visible,
+  .cookie-banner__policy:hover,
+  .cookie-banner__policy:focus-visible,
+  .cookie-dialog__policy:hover,
+  .cookie-dialog__policy:focus-visible {
+    text-decoration: none;
+  }
+
+  .cookie-banner__policy,
+  .cookie-dialog__policy {
+    width: fit-content;
+    font-size: 0.8125rem;
+    color: var(--cookie-muted);
+  }
+
+  .cookie-banner__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  @media (min-width: 48rem) {
+    .cookie-banner__actions {
+      flex-shrink: 0;
+      /* Reads right-to-left in importance, so the primary action ends the row. */
+      align-items: center;
+    }
+  }
+
+  /*
+   * One button treatment for the banner and the dialog, so "Accept all" looks
+   * the same wherever it's offered.
+   */
+  .cookie-button {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.25rem;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    color: inherit;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--style-border-radius-inputs);
+    cursor: pointer;
+    transition: opacity 150ms ease;
+  }
+
+  .cookie-button:hover {
+    opacity: 0.85;
+  }
+
+  .cookie-button:focus-visible {
+    outline: 2px solid var(--cookie-accent);
+    outline-offset: 2px;
+  }
+
+  .cookie-button--solid {
+    color: var(--cookie-accent-text);
+    background-color: var(--cookie-accent);
+  }
+
+  .cookie-button--outline {
+    border-color: var(--cookie-border);
+  }
+
+  /*
+   * The third option is deliberately the quietest of the three: it opens more
+   * choices rather than settling anything, so it shouldn't compete with the
+   * two that do.
+   */
+  .cookie-button--quiet {
+    padding-inline: 0.5rem;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .cookie-button--quiet:hover {
+    text-decoration: none;
+  }
+
+  /*
+   * Pinned to the middle of the viewport rather than left to the browser. The
+   * UA centres a modal dialog with `inset: 0; margin: auto`, which shrink-wraps
+   * it into the space between the edges — clearing the far two is what lets the
+   * 50%/-50% pair take over. Left in place, `bottom: 0` against an auto height
+   * would stretch the box the length of the screen.
+   *
+   * Physical `top`/`left` on purpose: `translate(-50%, -50%)` has no logical
+   * counterpart, so pairing it with logical insets would only look consistent.
+   */
+  .cookie-dialog {
+    position: fixed;
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: min(32rem, calc(100vw - var(--page-margin) * 2));
+    max-height: calc(100dvh - var(--page-margin) * 2);
+    /* The cap above is only a cap while something can scroll under it — the
+       five rows and the buttons outgrow a short viewport otherwise. */
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    color: var(--cookie-text);
+    background-color: var(--cookie-bg);
+    border: 1px solid var(--cookie-border);
+    border-radius: var(--style-border-radius-inputs);
+    box-shadow: 0 20px 50px rgb(0 0 0 / 25%);
+    transform: translate(-50%, -50%);
+  }
+
+  .cookie-dialog::backdrop {
+    background-color: rgb(0 0 0 / 45%);
+  }
+
+  .cookie-dialog__form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem;
+  }
+
+  .cookie-dialog__heading {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .cookie-dialog__intro {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--cookie-muted);
+    text-wrap: pretty;
+  }
+
+  .cookie-dialog__options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .cookie-dialog__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  // Drives the banner and the preferences dialog through Shopify's Customer
+  // Privacy API, which is what actually records a decision and gates Shopify's
+  // own analytics and marketing pixels. Nothing here writes a cookie itself.
+  //
+  // This isn't progressive enhancement in the usual sense. Without the API
+  // there's no consent to record and no banner worth showing, so the markup
+  // ships hidden and only this script reveals it — a banner nobody can dismiss
+  // would be worse than none at all.
+  (() => {
+    // Every purpose the API understands. `sale_of_data` is handled apart from
+    // the rest: it's only a decision in some regions, and elsewhere the dialog
+    // shouldn't record an answer to a question it never asked.
+    const BASE_KEYS = ['analytics', 'marketing', 'preferences'];
+    const SALE_KEY = 'sale_of_data';
+
+    // The API arrives with `content_for_header`, which has run long before this
+    // bundle does. The wait is for the theme editor, which re-renders sections
+    // without reloading the page.
+    const POLL_INTERVAL = 100;
+    const POLL_LIMIT = 50;
+
+    // Long enough for the panel to finish sliding out before it leaves the
+    // layout. Matches the transition in the stylesheet above.
+    const HIDE_DELAY = 200;
+
+    let apiPromise = null;
+    let hideTimer = null;
+
+    function loadApi() {
+      if (apiPromise) return apiPromise;
+
+      apiPromise = new Promise((resolve, reject) => {
+        let attempts = 0;
+
+        function attempt() {
+          const shopify = window.Shopify;
+
+          if (shopify && shopify.customerPrivacy) {
+            resolve(shopify.customerPrivacy);
+            return;
+          }
+
+          if (shopify && typeof shopify.loadFeatures === 'function') {
+            shopify.loadFeatures([{ name: 'consent-tracking-api', version: '0.1' }], (error) => {
+              if (error || !window.Shopify.customerPrivacy) {
+                reject(error || new Error('Customer Privacy API unavailable'));
+                return;
+              }
+
+              resolve(window.Shopify.customerPrivacy);
+            });
+            return;
+          }
+
+          attempts += 1;
+
+          if (attempts > POLL_LIMIT) {
+            reject(new Error('Shopify.loadFeatures never appeared'));
+            return;
+          }
+
+          setTimeout(attempt, POLL_INTERVAL);
+        }
+
+        attempt();
+      });
+
+      return apiPromise;
+    }
+
+    function banner() {
+      return document.querySelector('[data-cookie-banner]');
+    }
+
+    function dialog() {
+      return document.querySelector('[data-cookie-dialog]');
+    }
+
+    // Which purposes this shopper is actually being asked about. Anything left
+    // out is left untouched by `setTrackingConsent`, which is the point.
+    function activeKeys(api) {
+      if (api.saleOfDataRegion && api.saleOfDataRegion()) {
+        return BASE_KEYS.concat(SALE_KEY);
+      }
+
+      return BASE_KEYS;
+    }
+
+    function showBanner() {
+      const element = banner();
+      if (!element) return;
+
+      clearTimeout(hideTimer);
+      element.hidden = false;
+
+      // A frame between unhiding and marking it shown is what gives the
+      // transition something to run from.
+      requestAnimationFrame(() => {
+        element.dataset.cookieShown = 'true';
+      });
+    }
+
+    function hideBanner() {
+      const element = banner();
+      if (!element) return;
+
+      delete element.dataset.cookieShown;
+
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        // Guard against a re-open landing inside the delay — the editor can
+        // show the banner again while it's still sliding out.
+        if (element.dataset.cookieShown) return;
+        element.hidden = true;
+      }, HIDE_DELAY);
+    }
+
+    function record(api, consent) {
+      api.setTrackingConsent(consent, () => {});
+      hideBanner();
+    }
+
+    function acceptAll(api) {
+      const consent = {};
+      activeKeys(api).forEach((key) => {
+        consent[key] = true;
+      });
+
+      record(api, consent);
+    }
+
+    function declineAll(api) {
+      const consent = {};
+      activeKeys(api).forEach((key) => {
+        consent[key] = false;
+      });
+
+      record(api, consent);
+    }
+
+    // Fills the dialog from what the shopper has already chosen, so re-opening
+    // it shows their current answer rather than a blank slate.
+    function openDialog(api) {
+      const element = dialog();
+      if (!element) return;
+
+      const keys = activeKeys(api);
+      const consent = api.currentVisitorConsent();
+
+      const saleRow = element.querySelector('[data-cookie-row="' + SALE_KEY + '"]');
+      if (saleRow) saleRow.hidden = keys.indexOf(SALE_KEY) === -1;
+
+      keys.forEach((key) => {
+        const input = element.querySelector('[data-cookie-option="' + key + '"]');
+        if (!input) return;
+        input.checked = consent[key] === 'yes';
+      });
+
+      element.showModal();
+    }
+
+    function saveDialog(api) {
+      const element = dialog();
+      if (!element) return;
+
+      const consent = {};
+
+      activeKeys(api).forEach((key) => {
+        const input = element.querySelector('[data-cookie-option="' + key + '"]');
+        if (!input) return;
+        consent[key] = input.checked;
+      });
+
+      record(api, consent);
+    }
+
+    // One delegated listener for every control, so nothing has to be re-bound
+    // when the theme editor swaps the section's markup out.
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const control = target.closest(
+        '[data-cookie-accept], [data-cookie-decline], [data-cookie-customize], [data-cookie-preferences]'
+      );
+      if (!control) return;
+
+      event.preventDefault();
+
+      loadApi()
+        .then((api) => {
+          if (control.hasAttribute('data-cookie-accept')) {
+            acceptAll(api);
+          } else if (control.hasAttribute('data-cookie-decline')) {
+            declineAll(api);
+          } else {
+            openDialog(api);
+          }
+        })
+        .catch(() => {});
+    });
+
+    // Escape and Cancel both land here with an empty or "cancel" return value,
+    // which leaves the existing consent alone.
+    document.addEventListener('close', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (!target.hasAttribute('data-cookie-dialog')) return;
+      if (target.returnValue !== 'save') return;
+
+      loadApi()
+        .then((api) => saveDialog(api))
+        .catch(() => {});
+    }, true);
+
+    function init() {
+      loadApi()
+        .then((api) => {
+          // The reopen link lives in the footer and stays hidden until there's
+          // an API behind it to answer.
+          document.querySelectorAll('[data-cookie-preferences]').forEach((element) => {
+            element.hidden = false;
+          });
+
+          if (api.shouldShowBanner()) showBanner();
+        })
+        .catch(() => {});
+    }
+
+    init();
+
+    // The theme editor re-renders the section on every settings change, and
+    // needs the banner visible while the merchant is styling it — its own
+    // region rarely being one where it would otherwise appear.
+    document.addEventListener('shopify:section:load', init);
+    document.addEventListener('shopify:section:select', (event) => {
+      if (!event.target.querySelector('[data-cookie-banner]')) return;
+      showBanner();
+    });
+    document.addEventListener('shopify:section:deselect', (event) => {
+      if (!event.target.querySelector('[data-cookie-banner]')) return;
+
+      loadApi()
+        .then((api) => {
+          if (!api.shouldShowBanner()) hideBanner();
+        })
+        .catch(() => {});
+    });
+  })();
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "t:general.cookie_banner",
+  "enabled_on": {
+    "groups": ["footer"]
+  },
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "t:info.cookie_banner"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:labels.heading",
+      "default": "Cookies on this site"
+    },
+    {
+      "type": "richtext",
+      "id": "message",
+      "label": "t:labels.message",
+      "info": "t:info.cookie_message",
+      "default": "<p>We use cookies to keep the shop working, and — only if you agree — to understand how it's used. You can change your mind at any time.</p>"
+    },
+    {
+      "type": "url",
+      "id": "policy_url",
+      "label": "t:labels.policy_url",
+      "info": "t:info.cookie_policy_url"
+    },
+    {
+      "type": "text",
+      "id": "policy_label",
+      "label": "t:labels.policy_label",
+      "default": "Read the privacy policy"
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "button_background_color",
+      "label": "t:labels.button_background_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "t:labels.button_text_color",
+      "default": "#FFFFFF"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:general.cookie_banner"
+    }
+  ]
+}
+{% endschema %}

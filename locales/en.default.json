@@ -160,6 +160,27 @@
     "list_view": "list view",
     "pagination": "Pagination"
   },
+  "cookies": {
+    "accept": "Accept all",
+    "analytics": "Analytics",
+    "analytics_note": "Counts how the shop is used, so pages that aren't working can be found and fixed.",
+    "banner_label": "Cookie notice",
+    "cancel": "Cancel",
+    "customize": "Choose cookies",
+    "decline": "Decline",
+    "intro": "Turn on only what you're happy with. You can come back and change this at any time.",
+    "manage": "Cookie preferences",
+    "marketing": "Marketing",
+    "marketing_note": "Measures whether advertising away from the store is what brought you here.",
+    "necessary": "Strictly necessary",
+    "necessary_note": "Keeps the cart, checkout and signing in working. These can't be turned off.",
+    "preferences": "Preferences",
+    "preferences_note": "Remembers choices like your country and language, so they don't have to be set again.",
+    "sale_of_data": "Sharing with third parties",
+    "sale_of_data_note": "Allows your personal information to be shared with third parties for advertising.",
+    "save": "Save choices",
+    "title": "Cookie preferences"
+  },
   "general": {
     "accessibility": {
       "alert": "Store alert",

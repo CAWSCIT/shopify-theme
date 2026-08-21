@@ -20,9 +20,23 @@
         "background_color": "#1c2320",
         "text_color": "#e5e2d9"
       }
+    },
+    "cookie_banner": {
+      "type": "cookie-banner",
+      "settings": {
+        "heading": "Cookies on this site",
+        "message": "<p>We use cookies to keep the shop working, and — only if you agree — to understand how it's used. You can change your mind at any time.</p>",
+        "policy_url": "/policies/privacy-policy",
+        "policy_label": "Read the privacy policy",
+        "background_color": "#ffffff",
+        "text_color": "#1c2320",
+        "button_background_color": "#0d463d",
+        "button_text_color": "#ffffff"
+      }
     }
   },
   "order": [
-    "footer"
+    "footer",
+    "cookie_banner"
   ]
 }
