@@ -80,13 +80,11 @@
     assign on_sale = true
   endif
 
-  # An expandable row is itself the click target, so the title can't also be a
-  # link — nesting one inside the `<summary>` would give the row two competing
-  # actions. Those rows reach the product page from the expanded panel instead.
-  assign title_url = ''
-  unless has_variants
-    assign title_url = product.url
-  endunless
+  # The title links to the product on every row, expandable ones included — the
+  # row opening its variants shouldn't be the only thing a click can do. Inside
+  # a `<summary>` that's two actions on one element, so the script below keeps a
+  # click on the link from toggling the row as well as following it.
+  assign title_url = product.url
 -%}
 
 {%- capture row_body -%}
@@ -219,7 +217,10 @@
         {%- for variant in product.variants limit: variants_shown -%}
           <li class="product-row__variant">
             <div class="product-row__variant-title">
-              <span class="text-sm leading-snug font-medium">{{ variant.title }}</span>
+              {% # Straight to the product with this variant already chosen. %}
+              <a class="product-row__link text-sm leading-snug font-medium" href="{{ variant.url }}">
+                {{- variant.title -}}
+              </a>
 
               {%- if show_sku -%}
                 {%- if variant.sku != blank -%}
@@ -704,5 +705,18 @@
       event.preventDefault();
       addToCart(form);
     });
+
+    // A link inside the summary is the one thing there that doesn't mean "show
+    // me the variants". Caught on the way down, so the click never reaches the
+    // summary and the row doesn't toggle as well — following the link is a
+    // default action, which stopping propagation leaves alone.
+    document.addEventListener(
+      'click',
+      (event) => {
+        if (!event.target.closest) return;
+        if (event.target.closest('.product-row__summary a')) event.stopPropagation();
+      },
+      true
+    );
   })();
 {% endjavascript %}

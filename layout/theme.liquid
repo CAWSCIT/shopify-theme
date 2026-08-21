@@ -35,7 +35,11 @@
   <body>
     {% sections 'header-group' %}
 
-    {{ content_for_layout }}
+    {% # The template's sections live in a landmark of their own, which is also
+       # what `critical.css` grows to keep a short page's footer at the bottom. %}
+    <main>
+      {{ content_for_layout }}
+    </main>
 
     {% sections 'footer-group' %}
   </body>

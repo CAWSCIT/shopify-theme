@@ -143,20 +143,6 @@
   </div>
 </footer>
 
-{% stylesheet %}
-  /*
-   * `body` is a 100svh flex column but nothing inside it grows, so on short
-   * pages (404, empty cart) the footer would float mid-viewport with the page
-   * background showing beneath it. Pushing the footer's own section wrapper
-   * down pins it to the bottom. Tailwind can't express this — the element that
-   * needs the margin is the `.shopify-section` wrapper Shopify renders around
-   * this file, which is outside the markup above.
-   */
-  .shopify-section-group-footer-group {
-    margin-block-start: auto;
-  }
-{% endstylesheet %}
-
 {% javascript %}
   // Delegated so it works no matter when the bundle runs, and keeps working
   // after the theme editor re-renders the section.

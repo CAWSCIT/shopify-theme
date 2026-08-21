@@ -95,6 +95,30 @@
 }
 
 /**
+ * Sticky footer.
+ *
+ * `body` is a column at least as tall as the viewport, so a page with little on
+ * it — a 404, an empty cart, a search that found nothing — has space left over.
+ * Whoever doesn't claim that space leaves the body's own background showing
+ * through it, which reads as a bare band across the page.
+ *
+ * `main` claims it, and passes it on to the section that ends the page: an
+ * auto-sized grid row stretches to fill its container, so the leftover is
+ * filled by that section's own background and the footer still sits at the
+ * bottom. This is the only thing in the theme that pins the footer — a section
+ * shouldn't have to know how the page around it is laid out.
+ */
+main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+main > :last-child {
+  flex-grow: 1;
+}
+
+/**
  * Section layout utilities
  *
  * Deliberately left unlayered: section-level `{% stylesheet %}` CSS is
