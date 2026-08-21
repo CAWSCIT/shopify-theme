@@ -114,7 +114,12 @@ main {
   flex-direction: column;
 }
 
-main > :last-child {
+/*
+ * Scoped to a section wrapper rather than any last child: a template that
+ * renders its own document — the gift card — makes `main` the layout itself,
+ * and stretching what's inside it would leave nothing for `main` to centre.
+ */
+main > .shopify-section:last-child {
   flex-grow: 1;
 }
 

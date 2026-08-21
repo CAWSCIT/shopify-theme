@@ -91,8 +91,13 @@
   "gift_card": {
     "add_to_apple_wallet": "Add to Apple Wallet",
     "card": "Gift card",
+    "code": "Gift card code",
+    "copied": "Copied",
+    "copy": "Copy code",
     "expired": "This gift card has expired",
     "expires_on": "Expires on {{ expires_on }}",
+    "initial_value_html": "of {{ value }} originally",
+    "shop": "Start shopping",
     "use_at_checkout": "Use this gift card at checkout"
   },
   "products": {
