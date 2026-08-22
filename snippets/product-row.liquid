@@ -1,10 +1,10 @@
 {% doc %}
-  Renders one row of a product list — thumbnail, title, SKU, a short descriptor,
-  the price, and an add-to-cart control.
+  Renders one row of a product list — thumbnail, title, a short descriptor, the
+  price, and an add-to-cart control.
 
   A product with more than one variant renders as a `<details>`: the whole row
-  is the toggle, and opening it lists every variant with its own SKU, price and
-  add button. A single-variant product renders as a plain row whose button adds
+  is the toggle, and opening it lists every variant with its own price and add
+  button. A single-variant product renders as a plain row whose button adds
   straight to the cart, so the common case stays one click. Using `<details>`
   rather than a script means the variants expand with JavaScript off, and the
   keyboard and screen reader behaviour comes for free.
@@ -14,6 +14,10 @@
   the background and update every `[data-cart-count]` on the page — the header's
   cart link carries one, which is how the shopper sees the add land.
 
+  A sold-out product or variant keeps both controls and greys them out instead
+  of dropping them, so the row stays the same shape however the stock moves and
+  a shopper reads "Sold out" where they'd have read the price of adding more.
+
   Colours and the thumbnail are read from custom properties so a parent can
   theme a whole list at once by setting them on the container: `--row-hover`,
   `--row-border`, `--row-input-border`, `--row-media-bg`, `--row-media-border`,
@@ -22,8 +26,7 @@
 
   @param {product} product - The product to render
   @param {string} [subtitle] - A short descriptor shown beside the title
-  @param {string} [detail] - A short line under the title, in place of the SKU
-  @param {boolean} [show_sku] - Show the SKU under the title, defaults to true
+  @param {string} [detail] - A short line under the title
   @param {number} [variant_limit] - How many variants to list, capped at 50 by Liquid
   @param {string} [sizes] - The `sizes` attribute for the thumbnail
   @param {string} [return_to] - Where the add-to-cart form lands. `back` returns
@@ -43,10 +46,6 @@
 {%- liquid
   assign row_sizes = sizes | default: '72px'
 
-  if show_sku == nil
-    assign show_sku = true
-  endif
-
   # One variant means there's nothing to choose between, so the row adds it
   # directly instead of expanding. Shopify gives every product at least one
   # variant, so this is the difference between "Add" and "Choose".
@@ -64,7 +63,6 @@
   endif
 
   assign first_variant = product.selected_or_first_available_variant
-  assign sku = first_variant.sku
 
   # `price_varies` is true only when the cheapest and dearest variants differ,
   # which is the one case where a single figure would misrepresent the product.
@@ -114,15 +112,10 @@
         {%- endif -%}
       </span>
 
-      {% # `detail` replaces the SKU rather than joining it: a caller that wants
-         # both passes both in one string, which keeps the line to one row
-         # however it's composed. %}
+      {% # One line, whatever the caller composed it from — the search results
+         # join a couple of fields into it before passing it in. %}
       {%- if detail != blank -%}
-        <span class="product-row__sku text-sm leading-snug">{{ detail }}</span>
-      {%- elsif show_sku -%}
-        {%- if sku != blank -%}
-          <span class="product-row__sku text-sm leading-snug">{{ sku }}</span>
-        {%- endif -%}
+        <span class="product-row__detail text-sm leading-snug">{{ detail }}</span>
       {%- endif -%}
     </div>
 
@@ -172,16 +165,7 @@
             <input type="hidden" name="return_to" value="{{ return_to }}">
           {%- endif -%}
 
-          <input
-            type="number"
-            name="quantity"
-            class="product-row__quantity"
-            value="1"
-            min="1"
-            step="1"
-            inputmode="numeric"
-            aria-label="{{ 'products.quantity_label' | t: title: product.title | escape }}"
-          >
+          {% render 'quantity-field', title: product.title %}
 
           <button
             type="submit"
@@ -193,7 +177,11 @@
           </button>
         </form>
       {%- else -%}
-        <span class="product-row__button product-row__button--disabled">{{ 'products.sold_out' | t }}</span>
+        <div class="product-row__unavailable">
+          {% render 'quantity-field', title: product.title, disabled: true %}
+
+          <span class="product-row__button product-row__button--disabled">{{ 'products.sold_out' | t }}</span>
+        </div>
       {%- endif -%}
     </div>
 
@@ -221,12 +209,6 @@
               <a class="product-row__link text-sm leading-snug font-medium" href="{{ variant.url }}">
                 {{- variant.title -}}
               </a>
-
-              {%- if show_sku -%}
-                {%- if variant.sku != blank -%}
-                  <span class="product-row__sku text-sm leading-snug">{{ variant.sku }}</span>
-                {%- endif -%}
-              {%- endif -%}
             </div>
 
             <p class="product-row__variant-price text-base leading-snug font-light font-price">
@@ -234,11 +216,11 @@
             </p>
 
             <div class="product-row__variant-action">
-              {%- if variant.available -%}
-                {%- capture variant_label -%}
-                  {{- product.title }} — {{ variant.title -}}
-                {%- endcapture -%}
+              {%- capture variant_label -%}
+                {{- product.title }} — {{ variant.title -}}
+              {%- endcapture -%}
 
+              {%- if variant.available -%}
                 {% # Hand-written rather than Liquid's product form tag: that
                    # tag names its form after the product, so the variants of
                    # one product would all share a single DOM id. %}
@@ -260,16 +242,7 @@
                     <input type="hidden" name="return_to" value="{{ return_to }}">
                   {%- endif -%}
 
-                  <input
-                    type="number"
-                    name="quantity"
-                    class="product-row__quantity"
-                    value="1"
-                    min="1"
-                    step="1"
-                    inputmode="numeric"
-                    aria-label="{{ 'products.quantity_label' | t: title: variant_label | escape }}"
-                  >
+                  {% render 'quantity-field', title: variant_label %}
 
                   <button
                     type="submit"
@@ -281,9 +254,13 @@
                   </button>
                 </form>
               {%- else -%}
-                <span class="product-row__button product-row__button--small product-row__button--disabled">
-                  {{- 'products.sold_out' | t -}}
-                </span>
+                <div class="product-row__unavailable">
+                  {% render 'quantity-field', title: variant_label, disabled: true %}
+
+                  <span class="product-row__button product-row__button--small product-row__button--disabled">
+                    {{- 'products.sold_out' | t -}}
+                  </span>
+                </div>
               {%- endif -%}
             </div>
 
@@ -390,7 +367,7 @@
   }
 
   /* Dimmed rather than a fixed grey, so it works on any row background. */
-  .product-row__sku,
+  .product-row__detail,
   .product-row__meta,
   .product-row__compare {
     opacity: 0.6;
@@ -412,21 +389,11 @@
    * size their content differently, so letting the shorter one grow to the line
    * height is what actually keeps the two the same height.
    */
-  .product-row__form {
+  .product-row__form,
+  .product-row__unavailable {
     display: flex;
     align-items: stretch;
     gap: 0.5rem;
-  }
-
-  .product-row__quantity {
-    width: 3.75rem;
-    padding: 0.5rem 0.375rem;
-    font-size: 0.875rem;
-    line-height: 1.25;
-    color: inherit;
-    text-align: center;
-    background-color: var(--row-bg, #ffffff);
-    border: 1px solid var(--row-input-border, rgb(0 0 0 / 30%));
   }
 
   .product-row__status {

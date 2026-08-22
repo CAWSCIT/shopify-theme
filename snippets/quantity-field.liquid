@@ -1,0 +1,172 @@
+{% doc %}
+  Renders a quantity field for a product row — a number input flanked by a "−"
+  and a "+".
+
+  The buttons are an addition to the input, not a replacement for it: the field
+  is an ordinary `number` input, so it still takes a typed quantity and still
+  posts as `quantity` with the form around it. With JavaScript off the buttons
+  are inert and the browser's own spinner does the stepping.
+
+  A sold-out row renders the field disabled rather than dropping it, so the row
+  keeps the shape it has when the product is back in stock.
+
+  Colours are read from the `--row-*` custom properties set on the surrounding
+  list, the same ones `product-row` uses — `--row-bg`, `--row-input-border` and
+  `--row-hover`.
+
+  @param {string} title - The product or variant name, used in the control labels
+  @param {number} [value] - The starting quantity, defaults to 1
+  @param {boolean} [disabled] - Render the field inert and greyed out
+
+  @example
+  {% render 'quantity-field', title: product.title %}
+  {% render 'quantity-field', title: variant_label, disabled: true %}
+{% enddoc %}
+
+{%- liquid
+  assign start_value = value | default: 1
+-%}
+
+{% # Inert and unreachable when disabled, so a screen reader gets the "Sold out"
+   # beside it rather than a quantity there's no point setting. Disabled
+   # controls aren't focusable, so `aria-hidden` traps nothing here. %}
+<div
+  class="quantity-field{% if disabled %} quantity-field--disabled{% endif %}"
+  {% if disabled %}
+    aria-hidden="true"
+  {% endif %}
+>
+  <button
+    type="button"
+    class="quantity-field__step"
+    data-quantity-field-step="-1"
+    aria-label="{{ 'products.decrease_quantity_label' | t: title: title | escape }}"
+    {% if disabled %}
+      disabled
+    {% endif %}
+  >
+    −
+  </button>
+
+  <input
+    type="number"
+    name="quantity"
+    class="quantity-field__input"
+    value="{{ start_value }}"
+    min="1"
+    step="1"
+    inputmode="numeric"
+    aria-label="{{ 'products.quantity_label' | t: title: title | escape }}"
+    {% if disabled %}
+      disabled
+    {% endif %}
+  >
+
+  <button
+    type="button"
+    class="quantity-field__step"
+    data-quantity-field-step="1"
+    aria-label="{{ 'products.increase_quantity_label' | t: title: title | escape }}"
+    {% if disabled %}
+      disabled
+    {% endif %}
+  >
+    +
+  </button>
+</div>
+
+{% stylesheet %}
+  /*
+   * The border belongs to the group rather than the input, so the two buttons
+   * and the field read as one control.
+   */
+  .quantity-field {
+    display: flex;
+    align-items: stretch;
+    background-color: var(--row-bg, #ffffff);
+    border: 1px solid var(--row-input-border, rgb(0 0 0 / 30%));
+    border-radius: var(--style-border-radius-inputs, 2px);
+  }
+
+  /* Matches the disabled add button beside it. */
+  .quantity-field--disabled {
+    opacity: 0.45;
+  }
+
+  /*
+   * Deliberately narrow: there's one of these on every row of a list, and the
+   * space it takes on a phone comes straight out of the product title beside
+   * it. Wide enough for a thumb, no wider.
+   */
+  .quantity-field__step {
+    width: 1.75rem;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    color: inherit;
+    cursor: pointer;
+    background-color: transparent;
+    border: 0;
+  }
+
+  .quantity-field__step:hover:not(:disabled) {
+    background-color: var(--row-hover, rgb(0 0 0 / 6%));
+  }
+
+  .quantity-field__step:disabled {
+    cursor: default;
+  }
+
+  /*
+   * The spinner is replaced by the two buttons either side, and it would
+   * otherwise sit on top of the `+`.
+   */
+  .quantity-field__input {
+    width: 2.25rem;
+    padding: 0.5rem 0;
+    font-size: 0.875rem;
+    line-height: 1.25;
+    color: inherit;
+    text-align: center;
+    appearance: textfield;
+    background-color: transparent;
+    border: 0;
+  }
+
+  .quantity-field__input:disabled {
+    cursor: default;
+  }
+
+  .quantity-field__input::-webkit-outer-spin-button,
+  .quantity-field__input::-webkit-inner-spin-button {
+    margin: 0;
+    appearance: none;
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  // Drives the − and + either side of the input. One delegated listener covers
+  // every field on the page, including rows the theme editor re-renders, so
+  // there's nothing to re-initialise.
+  //
+  // Scoped to `.quantity-field` so it leaves the product page's and the cart's
+  // own steppers, which have their own handlers, alone.
+  (() => {
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest) return;
+
+      const step = event.target.closest('[data-quantity-field-step]');
+      if (!step) return;
+
+      const field = step.closest('.quantity-field')?.querySelector('.quantity-field__input');
+      if (!field) return;
+
+      // The field can be cleared or typed into, so the floor is applied to
+      // whatever is actually in it rather than to the last stepped value.
+      const min = Number(field.min) || 1;
+      const current = Math.floor(Number(field.value) || min);
+
+      field.value = Math.max(min, current + Number(step.dataset.quantityFieldStep));
+    });
+  })();
+{% endjavascript %}

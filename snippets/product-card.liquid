@@ -2,18 +2,25 @@
   Renders a product card — cover art on a tinted panel, then the title, an
   optional secondary line, and the price. The whole card is one link.
 
+  Passing a `variant` points the card at that one variant instead of the
+  product: its own image, its own price, and a link that arrives with it already
+  selected. The caller decides what the secondary line says — the featured
+  products section puts the variant's name there.
+
   Colours and the panel's aspect ratio are read from custom properties so a
   parent can theme a whole grid at once by setting them on the container:
   `--card-bg`, `--card-border`, `--card-media-bg`, `--card-media-aspect`.
   Every one has a fallback, so the card also stands on its own.
 
   @param {product} product - The product to render
+  @param {variant} [variant] - A variant of that product to pin the card to
   @param {string} [subtitle] - A line between the title and the price
   @param {string} [sizes] - The `sizes` attribute for the cover image
   @param {string} [loading] - Image loading strategy, `lazy` (default) or `eager`
 
   @example
   {% render 'product-card', product: product %}
+  {% render 'product-card', product: product, variant: variant, subtitle: variant.title %}
   {% render 'product-card',
     product: product,
     subtitle: product.metafields.custom.subtitle,
@@ -25,26 +32,48 @@
   assign card_loading = loading | default: 'lazy'
   assign card_sizes = sizes | default: '(min-width: 48rem) 25vw, 50vw'
 
+  assign card_url = product.url
+  assign card_image = product.featured_image
+  assign card_price = product.price
+  assign card_compare = product.compare_at_price
+  assign price_varies = product.price_varies
+
+  # One variant has one price and one picture, so nothing here is a range any
+  # more. `variant.url` is the product URL with the variant preselected, which
+  # is what carries the choice through to the product page.
+  if variant != blank
+    assign card_url = variant.url
+    assign card_price = variant.price
+    assign card_compare = variant.compare_at_price
+    assign price_varies = false
+
+    # Variants often share the product's cover art rather than carrying their
+    # own, and an empty panel would be worse than the shared image.
+    if variant.image != blank
+      assign card_image = variant.image
+    endif
+  endif
+
   # `price_varies` is true only when the cheapest and dearest variants differ,
   # which is the one case where a single figure would misrepresent the product.
-  assign price = product.price | money
-  if product.price_varies
+  assign price = card_price | money
+  if price_varies
     assign price = 'products.price.from_price_html' | t: price: price
   endif
 
   # `compare_at_price` is left set after a sale ends, so it only means "on sale"
   # while it's still above the current price.
   assign on_sale = false
-  if product.compare_at_price > product.price
+  if card_compare > card_price
     assign on_sale = true
   endif
 -%}
 
-<a class="product-card" href="{{ product.url }}">
+<a class="product-card" href="{{ card_url }}">
   <div class="product-card__media">
-    {%- if product.featured_image != blank -%}
+    {%- if card_image != blank -%}
       {{
-        product.featured_image
+        card_image
         | image_url: width: 800
         | image_tag:
           widths: '200, 300, 400, 600, 800',
@@ -74,7 +103,7 @@
       {%- if on_sale -%}
         <s class="product-card__compare text-sm">
           <span class="sr-only">{{ 'products.price.regular_price' | t }}</span>
-          {{- product.compare_at_price | money -}}
+          {{- card_compare | money -}}
         </s>
       {%- endif -%}
     </p>

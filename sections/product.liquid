@@ -308,12 +308,22 @@
             </div>
 
             <div class="product__purchase">
-              <div class="product__quantity">
+              {% # Greyed out rather than hidden on a sold-out variant: there's
+                 # nothing to set a quantity for, but the panel shouldn't
+                 # reshuffle every time the shopper picks a different option.
+                 # The script below keeps this in step with the selects. %}
+              <div
+                class="product__quantity{% unless current_variant.available %} product__quantity--disabled{% endunless %}"
+                data-quantity-group
+              >
                 <button
                   type="button"
                   class="product__quantity-step"
                   data-quantity-step="-1"
                   aria-label="{{ 'products.decrease_quantity' | t }}"
+                  {% unless current_variant.available %}
+                    disabled
+                  {% endunless %}
                 >
                   −
                 </button>
@@ -328,6 +338,9 @@
                   step="1"
                   inputmode="numeric"
                   data-quantity-input
+                  {% unless current_variant.available %}
+                    disabled
+                  {% endunless %}
                 >
 
                 <button
@@ -335,6 +348,9 @@
                   class="product__quantity-step"
                   data-quantity-step="1"
                   aria-label="{{ 'products.increase_quantity' | t }}"
+                  {% unless current_variant.available %}
+                    disabled
+                  {% endunless %}
                 >
                   +
                 </button>
@@ -634,8 +650,18 @@
     border: 0;
   }
 
-  .product__quantity-step:hover {
+  .product__quantity-step:hover:not(:disabled) {
     background-color: var(--section-bg, rgb(0 0 0 / 4%));
+  }
+
+  /* Matches the disabled submit button below it. */
+  .product__quantity--disabled {
+    opacity: 0.5;
+  }
+
+  .product__quantity-step:disabled,
+  .product__quantity-input:disabled {
+    cursor: default;
   }
 
   /*
@@ -763,6 +789,7 @@
       const idField = form.querySelector('[data-variant-id]');
       const quantityField = form.querySelector('[data-quantity-input]');
       const submit = form.querySelector('[data-submit]');
+      const quantityGroup = form.querySelector('[data-quantity-group]');
       const priceField = root.querySelector('[data-price]');
       const compare = root.querySelector('[data-compare]');
       const compareValue = root.querySelector('[data-compare-value]');
@@ -818,6 +845,16 @@
 
       function render() {
         const total = current ? current.price * quantity() : 0;
+        const buyable = Boolean(current && current.available);
+
+        // There's no quantity to pick for something that can't be bought, so
+        // the stepper goes with the submit button.
+        if (quantityGroup) {
+          quantityGroup.classList.toggle('product__quantity--disabled', !buyable);
+          quantityGroup.querySelectorAll('button, input').forEach((control) => {
+            control.disabled = !buyable;
+          });
+        }
 
         if (submit) {
           if (!current) {

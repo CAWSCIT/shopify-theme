@@ -141,7 +141,6 @@
               {% render 'product-row',
                 product: product,
                 subtitle: subtitle,
-                show_sku: section.settings.show_sku,
                 variant_limit: section.settings.variant_limit,
                 sizes: media_sizes,
                 return_to: return_to
@@ -331,13 +330,6 @@
       "info": "t:info.subtitle_metafield",
       "default": "custom.subtitle",
       "visible_if": "{{ section.settings.subtitle_source == 'metafield' }}"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_sku",
-      "label": "t:labels.show_sku",
-      "info": "t:info.show_sku",
-      "default": true
     },
     {
       "type": "range",

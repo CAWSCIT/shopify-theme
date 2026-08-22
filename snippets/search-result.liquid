@@ -1,8 +1,8 @@
 {% doc %}
   Renders one row of the search results.
 
-  A product renders as a product row, with its type and SKU on the line under
-  the title — the type because it's what the category sidebar filters by.
+  A product renders as a product row, with its type on the line under the title
+  — the type because it's what the category sidebar filters by.
 
   A search that wasn't scoped to products can also return articles and pages.
   Those render as a plain titled link rather than being skipped, so the result
@@ -56,17 +56,6 @@
   if settings.show_type
     assign detail = result.type
   endif
-
-  if settings.show_sku
-    assign sku = result.selected_or_first_available_variant.sku
-    if sku != blank
-      if detail == blank
-        assign detail = sku
-      else
-        assign detail = detail | append: ' · ' | append: sku
-      endif
-    endif
-  endif
 -%}
 
 {%- if result.object_type == 'product' -%}
@@ -74,7 +63,6 @@
     product: result,
     subtitle: subtitle,
     detail: detail,
-    show_sku: false,
     variant_limit: settings.variant_limit,
     sizes: media_sizes,
     return_to: return_to

@@ -2,30 +2,37 @@
   assign product_limit = section.settings.products_to_show
   assign source_collection = section.settings.collection
 
-  # The hand-picked list takes the first slots and the collection tops up
-  # whatever is left, so a merchant can pin one title to the front without
-  # having to curate the whole row.
-  assign manual_products = section.settings.featured_products
-  if manual_products == blank
-    assign manual_products = '' | split: ','
+  # The pinned blocks take the first slots and the collection tops up whatever
+  # is left, so a merchant can pin one title to the front without having to
+  # curate the whole row. Blocks rather than a product list because each pin
+  # can name a variant, and a product list holds only products.
+  assign pinned_count = 0
+  for block in section.blocks
+    if block.settings.product != blank
+      assign pinned_count = pinned_count | plus: 1
+    endif
+  endfor
+
+  if pinned_count > product_limit
+    assign pinned_count = product_limit
   endif
 
-  assign card_products = manual_products
+  assign fill_limit = product_limit | minus: pinned_count
 
-  if source_collection != blank
+  assign fill_products = '' | split: ','
+  if source_collection != blank and fill_limit > 0
     # Rejecting each pinned handle from the collection means a product that's in
     # both places shows once, in its pinned position, instead of twice. The
     # first pass uses a handle no product can have — it rejects nothing, and is
-    # there to materialise `collection.products` into the plain array `concat`
-    # needs below.
+    # there to materialise `collection.products` into the plain array the
+    # rejections below work on.
     assign fill_products = source_collection.products | reject: 'handle', ''
-    assign manual_handles = manual_products | map: 'handle'
 
-    for handle in manual_handles
-      assign fill_products = fill_products | reject: 'handle', handle
+    for block in section.blocks
+      if block.settings.product != blank
+        assign fill_products = fill_products | reject: 'handle', block.settings.product.handle
+      endif
     endfor
-
-    assign card_products = card_products | concat: fill_products
   endif
 
   # The "view all" link has nowhere to point without a collection behind it.
@@ -95,9 +102,96 @@
       </div>
     {%- endif -%}
 
-    {%- if card_products.size > 0 -%}
+    {%- if pinned_count > 0 or fill_products.size > 0 -%}
       <ul role="list" class="featured-products__grid mt-8 list-none pl-0 lg:mt-10">
-        {%- for product in card_products limit: product_limit -%}
+        {%- assign pinned_shown = 0 -%}
+
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign pinned_product = block.settings.product
+
+            # A block with nothing picked yet is a row the merchant is still
+            # filling in rather than an empty card. It costs no slot either, so
+            # the collection below still tops the row up to the full count.
+            assign show_pin = true
+            if pinned_product == blank
+              assign show_pin = false
+            endif
+            if pinned_shown >= product_limit
+              assign show_pin = false
+            endif
+
+            assign pinned_variant = nil
+            assign subtitle = ''
+
+            if show_pin
+              assign pinned_shown = pinned_shown | plus: 1
+
+              # The theme editor has no variant picker of any kind, so the
+              # variant is typed and matched here. Name, SKU and id in turn
+              # cover every way a merchant might read one off the admin, and the
+              # match ignores case because none of the three are shown in a
+              # fixed one.
+              #
+              # A `for` loop stops at 50 iterations, so only the first 50
+              # variants of a product can be pinned. Anything unmatched — a
+              # typo, or a variant since deleted — leaves the card on the whole
+              # product rather than dropping it out of the row.
+              assign wanted = block.settings.variant | strip | downcase
+
+              if wanted != blank and pinned_product.has_only_default_variant == false
+                for variant in pinned_product.variants
+                  assign variant_title = variant.title | downcase
+                  assign variant_sku = variant.sku | downcase
+                  assign variant_id = variant.id | append: ''
+
+                  assign matched = false
+                  if variant_title == wanted
+                    assign matched = true
+                  elsif variant_sku == wanted
+                    assign matched = true
+                  elsif variant_id == wanted
+                    assign matched = true
+                  endif
+
+                  if matched
+                    assign pinned_variant = variant
+                    break
+                  endif
+                endfor
+              endif
+
+              # The variant name takes the secondary line: it's what tells this
+              # card apart from the same book in another binding, which is more
+              # use there than the metafield would be.
+              if pinned_variant != blank
+                assign subtitle = pinned_variant.title
+              else
+                case section.settings.subtitle_source
+                  when 'metafield'
+                    assign subtitle = pinned_product.metafields[metafield_namespace][metafield_key] | metafield_text
+                  when 'product_type'
+                    assign subtitle = pinned_product.type
+                  when 'vendor'
+                    assign subtitle = pinned_product.vendor
+                endcase
+              endif
+            endif
+          -%}
+
+          {%- if show_pin -%}
+            <li {{ block.shopify_attributes }}>
+              {% render 'product-card',
+                product: pinned_product,
+                variant: pinned_variant,
+                subtitle: subtitle,
+                sizes: card_sizes
+              %}
+            </li>
+          {%- endif -%}
+        {%- endfor -%}
+
+        {%- for product in fill_products limit: fill_limit -%}
           {%- liquid
             assign subtitle = ''
             case section.settings.subtitle_source
@@ -142,6 +236,26 @@
 {% schema %}
 {
   "name": "t:general.featured_products",
+  "max_blocks": 12,
+  "blocks": [
+    {
+      "type": "pinned_product",
+      "name": "t:general.pinned_product",
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "t:general.product"
+        },
+        {
+          "type": "text",
+          "id": "variant",
+          "label": "t:labels.variant",
+          "info": "t:info.pinned_variant"
+        }
+      ]
+    }
+  ],
   "settings": [
     {
       "type": "text",
@@ -154,13 +268,6 @@
       "id": "collection",
       "label": "t:labels.collection",
       "info": "t:info.featured_collection"
-    },
-    {
-      "type": "product_list",
-      "id": "featured_products",
-      "label": "t:labels.featured_products",
-      "limit": 12,
-      "info": "t:info.featured_products"
     },
     {
       "type": "range",
