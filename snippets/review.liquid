@@ -1,0 +1,127 @@
+{% doc %}
+  Renders one review as a list item — the stars, an optional title, the review
+  itself, and who left it and when.
+
+  Every part is optional, and a field the metaobject doesn't define simply
+  doesn't render, so the same snippet covers a "Review" definition carrying
+  five fields and one carrying two. The field keys are passed in rather than
+  hard-coded because the merchant names them when they define the metaobject.
+
+  Colours are read from custom properties set on a parent, so a whole list can
+  be themed at once: `--rating-star`, `--rating-track`, `--reviews-panel-bg`
+  and `--reviews-border`. Each has a fallback, so the snippet also stands on
+  its own.
+
+  Expects to be rendered inside a `<ul>`.
+
+  @param {object} entry - The metaobject holding the review
+  @param {string} [rating_field] - Key of the entry's rating field
+  @param {string} [title_field] - Key of the entry's title field
+  @param {string} [body_field] - Key of the entry's body field
+  @param {string} [author_field] - Key of the entry's author field
+  @param {string} [date_field] - Key of the entry's date field
+  @param {number} [scale_max] - The top of the rating scale, 5 by default
+
+  @example
+  {% render 'review', entry: entry %}
+  {% render 'review', entry: entry, body_field: 'content', scale_max: 10 %}
+{% enddoc %}
+
+{%- liquid
+  # A "Review" metaobject is as likely to carry a plain number for the score as
+  # Shopify's own `rating` type, and only the latter has a `.rating` to read.
+  # Falling back to the bare value covers both, and `plus: 0` turns anything
+  # that isn't a number into one that fails the tests below.
+  assign review_rating = entry[rating_field].value.rating
+  if review_rating == blank
+    assign review_rating = entry[rating_field].value | plus: 0
+  endif
+  assign review_title = entry[title_field] | metafield_text
+  assign review_author = entry[author_field] | metafield_text
+  assign review_date = entry[date_field].value
+
+  # `metafield_tag` rather than the raw value: a review body is as likely to be
+  # rich text as it is plain, and this is the one filter that renders both —
+  # paragraphs for the former, line breaks for the latter. Reading `.value`
+  # instead would print a rich text field's JSON onto the page.
+  assign review_body = entry[body_field] | metafield_tag
+
+  # An entry with nothing to show is skipped outright, which is what a metafield
+  # pointing at something other than reviews collapses to.
+  assign has_content = false
+  if review_rating > 0 or review_title != blank or review_body != blank
+    assign has_content = true
+  endif
+-%}
+
+{%- if has_content -%}
+  <li class="review">
+    {%- if review_rating > 0 -%}
+      {% render 'rating-stars', rating: review_rating, scale_max: scale_max %}
+    {%- endif -%}
+
+    {%- if review_title != blank -%}
+      <h3 class="review__title mt-2 text-base leading-snug font-semibold">{{ review_title }}</h3>
+    {%- endif -%}
+
+    {%- if review_body != blank -%}
+      <div class="review__body mt-2 text-base leading-relaxed">{{ review_body }}</div>
+    {%- endif -%}
+
+    {%- if review_author != blank or review_date != blank -%}
+      <p class="review__meta mt-3 text-sm leading-snug">
+        {%- if review_author != blank -%}
+          <span class="review__author">{{ review_author }}</span>
+        {%- endif -%}
+
+        {%- if review_author != blank and review_date != blank -%}
+          <span aria-hidden="true"> · </span>
+        {%- endif -%}
+
+        {%- if review_date != blank -%}
+          {{ review_date | time_tag: format: 'date' }}
+        {%- endif -%}
+      </p>
+    {%- endif -%}
+  </li>
+{%- endif -%}
+
+{% stylesheet %}
+  .review {
+    padding: 1.25rem 1.5rem;
+    background-color: var(--reviews-panel-bg, #ffffff);
+    border: 1px solid var(--reviews-border, rgb(0 0 0 / 12%));
+    border-radius: 2px;
+  }
+
+  .review + .review {
+    margin-top: 1rem;
+  }
+
+  .review__meta {
+    opacity: 0.7;
+  }
+
+  .review__author {
+    font-weight: 500;
+  }
+
+  /*
+   * `metafield_tag` picks the wrapper from the field's type — a `<span>` of
+   * `<br>`-separated lines for a multi-line field, a `<div>` of `<p>`s for a
+   * rich text one — so both shapes are covered here rather than assuming
+   * either. Neither wrapper can carry a utility class, which is why the
+   * spacing is set from the stylesheet at all.
+   */
+  .review__body :where(p, ul, ol) {
+    margin: 0;
+  }
+
+  .review__body :where(p, ul, ol) + :where(p, ul, ol) {
+    margin-top: 0.75rem;
+  }
+
+  .review__body :where(ul, ol) {
+    padding-left: 1.25rem;
+  }
+{% endstylesheet %}

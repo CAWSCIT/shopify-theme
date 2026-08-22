@@ -1,3 +1,12 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin language editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
 {
   "404": {
     "title": "404",
@@ -264,6 +273,26 @@
     "title": "This shop is private",
     "password": "Password",
     "enter": "Enter"
+  },
+  "reviews": {
+    "empty": "No reviews yet. Yours would be the first.",
+    "form_body": "Your review",
+    "form_email": "Email",
+    "form_name": "Name",
+    "form_posted": "Thanks — your review has been sent.",
+    "form_rating": "Rating",
+    "form_review_title": "Headline",
+    "form_submit": "Send review",
+    "form_title": "Leave a review",
+    "rating_out_of": "{{ rating }} out of {{ scale }} stars",
+    "review_count": {
+      "one": "{{ count }} review",
+      "other": "{{ count }} reviews"
+    },
+    "show_more": {
+      "one": "Show {{ count }} more review",
+      "other": "Show {{ count }} more reviews"
+    }
   },
   "search": {
     "all_products": "All products",

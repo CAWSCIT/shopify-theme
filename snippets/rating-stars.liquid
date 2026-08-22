@@ -1,0 +1,90 @@
+{% doc %}
+  Renders a row of stars for a rating, with the figure written out for screen
+  readers.
+
+  The stars are one element, not five: a single row of glyphs is clipped to the
+  fraction of the rating so a 4.3 reads as four and a bit, rather than being
+  rounded to something the number beside it contradicts.
+
+  Colours are read from custom properties so a parent can theme a whole list at
+  once by setting them on the container: `--rating-star` and `--rating-track`.
+  Both have a fallback, so the snippet also stands on its own.
+
+  @param {number} rating - The rating to show
+  @param {number} [scale_max] - The top of the scale, 5 by default
+  @param {string} [classes] - Extra classes for the wrapper
+
+  @example
+  {% render 'rating-stars', rating: 4.3 %}
+  {% render 'rating-stars',
+    rating: product.metafields.reviews.rating.value.rating,
+    scale_max: product.metafields.reviews.rating.value.scale_max
+  %}
+{% enddoc %}
+
+{%- liquid
+  assign stars_max = scale_max | default: 5 | at_least: 1
+  assign stars_value = rating | default: 0 | at_least: 0 | at_most: stars_max
+
+  # The fill is a percentage of the row's width, so the rating has to be
+  # expressed as a share of the scale rather than as a count of stars.
+  assign stars_percent = stars_value | times: 100.0 | divided_by: stars_max
+
+  # Rounded for the label only. `round: 1` keeps 4.0 reading as "4.0 out of 5",
+  # which matches how the same figure is written everywhere else.
+  assign stars_label_value = stars_value | round: 1
+-%}
+
+<span
+  class="rating-stars {{ classes }}"
+  style="--rating-fill: {{ stars_percent }}%; --rating-count: {{ stars_max }};"
+>
+  <span class="rating-stars__track" aria-hidden="true">
+    {%- for i in (1..stars_max) -%}★{%- endfor -%}
+    <span class="rating-stars__fill">
+      {%- for i in (1..stars_max) -%}★{%- endfor -%}
+    </span>
+  </span>
+
+  <span class="sr-only">
+    {{- 'reviews.rating_out_of' | t: rating: stars_label_value, scale: stars_max -}}
+  </span>
+</span>
+
+{% stylesheet %}
+  .rating-stars {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+  }
+
+  /*
+   * `ch` rather than `em`: the two rows have to line up exactly for the clip to
+   * land on the right star, and a star glyph is one character wide whatever
+   * face the browser substitutes.
+   */
+  .rating-stars__track {
+    position: relative;
+    display: inline-block;
+    width: calc(var(--rating-count, 5) * 1ch);
+    overflow: hidden;
+    font-size: 1.125rem;
+    letter-spacing: 0;
+    color: var(--rating-track, rgb(0 0 0 / 18%));
+    white-space: nowrap;
+  }
+
+  /*
+   * The filled row sits directly over the empty one and is cut off at the
+   * rating, so a fraction of a star shows as a fraction of its width.
+   */
+  .rating-stars__fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--rating-fill, 0%);
+    overflow: hidden;
+    color: var(--rating-star, #b8862b);
+    white-space: nowrap;
+  }
+{% endstylesheet %}

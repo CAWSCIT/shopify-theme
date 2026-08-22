@@ -1,0 +1,676 @@
+{% comment %}
+  Renders reviews beneath a product page — the average rating, the reviews
+  themselves, and a form for leaving one.
+
+  The theme doesn't collect reviews itself, and Liquid can't write to the store
+  from the storefront, so this section is a way to *display* reviews from
+  wherever the merchant already keeps them. It reads three places, and each
+  part is independent — turn off what a store doesn't use:
+
+  1. The summary reads `reviews.rating` and `reviews.rating_count`, the
+     metafields every review app on the App Store writes to. A store running
+     Judge.me, Okendo, Loox or Yotpo gets a working average with nothing to set
+     up.
+  2. The list reads a metafield holding a list of metaobject entries, one per
+     review, with the field keys named in the settings. That's the app-free
+     route: define a "Review" metaobject in the admin and the section renders
+     it. Where no aggregate metafield exists, the average is worked out from
+     these entries instead.
+  3. An app block slot, so a review app's own widget can be dropped in here in
+     place of — or alongside — the two above.
+
+  The form posts through Shopify's contact form, which emails the store. It's
+  the only submission route open to a theme: a storefront can't create
+  metafields or metaobjects, so someone in the admin publishes what comes in.
+  A store running a review app should turn the form off and use the app's.
+
+  The section deliberately writes no JSON-LD. `snippets/structured-data.liquid`
+  already runs the product through the `structured_data` filter, which picks up
+  `reviews.rating` and `reviews.rating_count` on its own — a second
+  aggregateRating here would contradict it.
+
+  https://shopify.dev/docs/storefronts/themes/product-merchandising/product-reviews
+{% endcomment %}
+
+{%- liquid
+  # `reviews_metafield` is written as `namespace.key` in one field to keep the
+  # settings panel short, the same way the product row's subtitle is.
+  assign metafield_parts = section.settings.reviews_metafield | split: '.'
+  assign reviews_namespace = metafield_parts[0]
+  assign reviews_key = metafield_parts[1]
+
+  # Splitting an empty string is how you write an empty array in Liquid.
+  assign review_entries = '' | split: ','
+  assign entries_count = 0
+
+  if reviews_key != blank
+    assign listed = product.metafields[reviews_namespace][reviews_key].value
+    if listed != blank
+      assign review_entries = listed
+
+      # A metafield holding a list of references reports its length as `count`
+      # and hands back nothing for `size`; a plain array is the other way
+      # round. Asking for both covers a merchant who pointed this at a list of
+      # text rather than at metaobjects.
+      assign entries_count = listed.count | default: listed.size | default: 0
+    endif
+  endif
+
+  assign rating_field = section.settings.rating_field
+  assign title_field = section.settings.title_field
+  assign body_field = section.settings.body_field
+  assign author_field = section.settings.author_field
+  assign date_field = section.settings.date_field
+
+  # The app metafields are the authority on the average: they cover reviews
+  # this section never lists, and an app updates them as reviews come in.
+  assign aggregate = product.metafields.reviews.rating.value
+  assign scale_max = 5
+  if aggregate.scale_max > 0
+    assign scale_max = aggregate.scale_max
+  endif
+
+  assign average_rating = 0
+  assign review_count = 0
+
+  if aggregate.rating > 0
+    assign average_rating = aggregate.rating
+    assign review_count = product.metafields.reviews.rating_count.value | plus: 0
+  endif
+
+  # No aggregate metafield, so the listed entries are all there is to average.
+  # `times: 1.0` first — `divided_by` on two integers throws the remainder away,
+  # which would round every average down to a whole star.
+  if average_rating == 0 and entries_count > 0
+    assign rating_total = 0
+    assign rated_count = 0
+
+    for entry in review_entries limit: 50
+      # A "Review" metaobject is as likely to carry a plain number for the
+      # score as Shopify's own `rating` type, and only the latter has a
+      # `.rating` to read. Falling back to the bare value covers both, and
+      # `plus: 0` turns anything that isn't a number into one that fails the
+      # test below.
+      assign entry_rating = entry[rating_field].value.rating
+      if entry_rating == blank
+        assign entry_rating = entry[rating_field].value | plus: 0
+      endif
+
+      if entry_rating > 0
+        assign rating_total = rating_total | plus: entry_rating
+        assign rated_count = rated_count | plus: 1
+      endif
+    endfor
+
+    if rated_count > 0
+      assign average_rating = rating_total | times: 1.0 | divided_by: rated_count
+    endif
+  endif
+
+  # Falls back to the number of entries on show, so a store using the metaobject
+  # route alone still gets a count beside the stars.
+  if review_count == 0
+    assign review_count = entries_count
+  endif
+
+  assign has_summary = false
+  if section.settings.show_summary and average_rating > 0
+    assign has_summary = true
+  endif
+
+  # How many are listed before the rest go behind the disclosure. Capped at
+  # Liquid's 50-iteration ceiling, which is as many as the loop behind it can
+  # render — counting higher would offer reviews that never appear.
+  assign visible_count = section.settings.reviews_to_show
+  assign hidden_count = entries_count | minus: visible_count | at_least: 0 | at_most: 50
+
+  assign app_block_count = section.blocks.size
+
+  # "No reviews yet" is only true when nothing else on the section contradicts
+  # it. A store on a review app routinely has an average and no metaobjects,
+  # and claiming there are none under a four-and-a-half star summary reads as a
+  # bug to a shopper.
+  assign has_nothing_to_show = false
+  if has_summary == false and app_block_count == 0
+    assign has_nothing_to_show = true
+  endif
+-%}
+
+<section
+  id="reviews"
+  class="full-width bg-[var(--section-bg)] text-[var(--section-text)]"
+  style="
+    --section-bg: {{ section.settings.background_color }};
+    --section-text: {{ section.settings.text_color }};
+    --reviews-accent: {{ section.settings.accent_color }};
+    --reviews-panel-bg: {{ section.settings.panel_background_color }};
+    --reviews-border: {{ section.settings.text_color | color_modify: 'alpha', 0.12 }};
+    --reviews-input-border: {{ section.settings.text_color | color_modify: 'alpha', 0.28 }};
+    --reviews-error: {{ section.settings.error_color }};
+    --reviews-button-bg: {{ section.settings.button_background_color }};
+    --reviews-button-text: {{ section.settings.button_text_color }};
+    --rating-star: {{ section.settings.star_color }};
+    --rating-track: {{ section.settings.text_color | color_modify: 'alpha', 0.18 }};
+  "
+>
+  <div class="mx-auto max-w-[var(--page-width)] px-[var(--page-margin)] py-8 lg:py-12">
+    <div class="reviews__head flex flex-wrap items-baseline justify-between gap-x-6 gap-y-3">
+      <h2 class="font-serif text-3xl leading-tight font-normal lg:text-4xl">{{ section.settings.heading }}</h2>
+
+      {%- if has_summary -%}
+        <p class="reviews__summary flex flex-wrap items-center gap-x-3 gap-y-1">
+          {% render 'rating-stars', rating: average_rating, scale_max: scale_max %}
+
+          <span class="reviews__average text-lg leading-none" aria-hidden="true">
+            {{- average_rating | round: 1 -}}
+            <span class="reviews__scale">/ {{ scale_max }}</span>
+          </span>
+
+          {%- if review_count > 0 -%}
+            <span class="reviews__count text-sm leading-snug">
+              {{- 'reviews.review_count' | t: count: review_count -}}
+            </span>
+          {%- endif -%}
+        </p>
+      {%- endif -%}
+    </div>
+
+    {%- if app_block_count > 0 -%}
+      {% # A review app's own widget. Left first and unstyled — an app block
+         # brings its own markup and its own stylesheet, and anything set on it
+         # here would fight them. %}
+      <div class="reviews__app mt-8">
+        {%- for block in section.blocks -%}
+          {%- case block.type -%}
+            {%- when '@app' -%}
+              {% render block %}
+          {%- endcase -%}
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+
+    {%- if section.settings.show_list -%}
+      {%- if entries_count > 0 -%}
+        <ul role="list" class="reviews__list mt-8 list-none pl-0">
+          {%- for entry in review_entries limit: visible_count -%}
+            {% render 'review',
+              entry: entry,
+              rating_field: rating_field,
+              title_field: title_field,
+              body_field: body_field,
+              author_field: author_field,
+              date_field: date_field,
+              scale_max: scale_max
+            %}
+          {%- endfor -%}
+        </ul>
+
+        {%- if hidden_count > 0 -%}
+          {% # A disclosure rather than a "load more" button: the rest are
+             # already in the page, so they open with the script blocked too.
+             # Liquid caps a `for` loop at 50 whatever the offset, which is the
+             # ceiling the settings note mentions. %}
+          <details class="reviews__more mt-6">
+            <summary class="reviews__more-toggle">
+              {{- 'reviews.show_more' | t: count: hidden_count -}}
+            </summary>
+
+            <ul role="list" class="reviews__list mt-6 list-none pl-0">
+              {%- for entry in review_entries offset: visible_count limit: 50 -%}
+                {% render 'review',
+                  entry: entry,
+                  rating_field: rating_field,
+                  title_field: title_field,
+                  body_field: body_field,
+                  author_field: author_field,
+                  date_field: date_field,
+                  scale_max: scale_max
+                %}
+              {%- endfor -%}
+            </ul>
+          </details>
+        {%- endif -%}
+      {%- elsif has_nothing_to_show -%}
+        <p class="reviews__empty mt-6 text-base leading-relaxed">{{ 'reviews.empty' | t }}</p>
+      {%- endif -%}
+    {%- endif -%}
+
+    {%- if section.settings.show_form -%}
+      <div class="reviews__form-wrapper mt-10">
+        <h3 class="font-serif text-2xl leading-tight font-normal">{{ 'reviews.form_title' | t }}</h3>
+
+        {%- if section.settings.form_note != blank -%}
+          <p class="reviews__note mt-2 text-sm leading-snug">{{ section.settings.form_note }}</p>
+        {%- endif -%}
+
+        {% form 'contact', id: 'review-form', class: 'reviews__form mt-6' %}
+          {%- if form.posted_successfully? -%}
+            <p class="reviews__notice" role="status">{{ 'reviews.form_posted' | t }}</p>
+          {%- endif -%}
+
+          {%- if form.errors -%}
+            <div class="reviews__errors">{{ form.errors | default_errors }}</div>
+          {%- endif -%}
+
+          {% # Named so the merchant can tell at a glance which product an
+             # emailed review is for. Shopify passes any `contact[...]` field
+             # straight through to the notification, using the name as its
+             # label. %}
+          <input type="hidden" name="contact[Product]" value="{{ product.title | escape }}">
+          <input type="hidden" name="contact[Product URL]" value="{{ shop.url | append: product.url }}">
+
+          <fieldset class="reviews__rating-field mt-5">
+            <legend class="reviews__label">{{ 'reviews.form_rating' | t }}</legend>
+
+            {% # Laid out in reverse so the CSS sibling selector can light up
+               # every star to the left of the one being hovered — a selector
+               # for earlier siblings doesn't exist. %}
+            <div class="reviews__stars">
+              {%- for offset in (1..scale_max) -%}
+                {%- assign score = scale_max | plus: 1 | minus: offset -%}
+                <input
+                  class="reviews__star-input sr-only"
+                  type="radio"
+                  id="{{ section.id }}-rating-{{ score }}"
+                  name="contact[Rating]"
+                  value="{{ score }}"
+                  required
+                >
+                <label class="reviews__star" for="{{ section.id }}-rating-{{ score }}">
+                  <span class="sr-only">{{ 'reviews.rating_out_of' | t: rating: score, scale: scale_max }}</span>
+                  <span aria-hidden="true">★</span>
+                </label>
+              {%- endfor -%}
+            </div>
+          </fieldset>
+
+          <div class="reviews__fields mt-4">
+            <div class="reviews__field">
+              <label class="reviews__label" for="{{ section.id }}-name">{{ 'reviews.form_name' | t }}</label>
+              <input
+                class="reviews__input"
+                id="{{ section.id }}-name"
+                type="text"
+                name="contact[Name]"
+                value="{{ form.name }}"
+                autocomplete="name"
+                required
+              >
+            </div>
+
+            <div class="reviews__field">
+              <label class="reviews__label" for="{{ section.id }}-email">{{ 'reviews.form_email' | t }}</label>
+              <input
+                class="reviews__input"
+                id="{{ section.id }}-email"
+                type="email"
+                name="contact[email]"
+                value="{{ form.email }}"
+                autocomplete="email"
+                required
+              >
+            </div>
+          </div>
+
+          <div class="reviews__field mt-4">
+            <label class="reviews__label" for="{{ section.id }}-title">{{ 'reviews.form_review_title' | t }}</label>
+            <input class="reviews__input" id="{{ section.id }}-title" type="text" name="contact[Review title]">
+          </div>
+
+          <div class="reviews__field mt-4">
+            <label class="reviews__label" for="{{ section.id }}-body">{{ 'reviews.form_body' | t }}</label>
+            <textarea class="reviews__input reviews__textarea" id="{{ section.id }}-body" name="contact[body]" rows="5" required>
+              {{- form.body -}}
+            </textarea>
+          </div>
+
+          <button type="submit" class="reviews__submit mt-5">{{ 'reviews.form_submit' | t }}</button>
+        {% endform %}
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% stylesheet %}
+  .reviews__count,
+  .reviews__scale,
+  .reviews__note,
+  .reviews__empty {
+    opacity: 0.7;
+  }
+
+  .reviews__average {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .reviews__head {
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--reviews-border, rgb(0 0 0 / 12%));
+  }
+
+  .reviews__more-toggle {
+    display: inline-flex;
+    align-items: center;
+    font-weight: 500;
+    color: var(--reviews-accent, #0d463d);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .reviews__more-toggle:hover,
+  .reviews__more-toggle:focus-visible {
+    text-decoration: none;
+  }
+
+  /* Two fields side by side from `sm` up, stacked below it. */
+  .reviews__fields {
+    display: grid;
+    gap: 1rem;
+  }
+
+  @media screen and (min-width: 40rem) {
+    .reviews__fields {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .reviews__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .reviews__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .reviews__input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    line-height: 1.4;
+    color: inherit;
+    background-color: var(--reviews-panel-bg, #ffffff);
+    border: 1px solid var(--reviews-input-border, rgb(0 0 0 / 28%));
+    border-radius: var(--style-border-radius-inputs, 2px);
+  }
+
+  .reviews__input:focus-visible {
+    outline: 2px solid var(--reviews-accent, #0d463d);
+    outline-offset: 1px;
+  }
+
+  .reviews__textarea {
+    resize: vertical;
+  }
+
+  .reviews__rating-field {
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  /*
+   * `row-reverse` puts the highest score first in the markup and last on the
+   * screen, so the stars still read left to right at one to five.
+   */
+  .reviews__stars {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    margin-top: 0.375rem;
+  }
+
+  .reviews__star {
+    padding: 0 0.0625rem;
+    font-size: 1.75rem;
+    line-height: 1;
+    color: var(--rating-track, rgb(0 0 0 / 18%));
+    cursor: pointer;
+    transition: color 100ms ease;
+  }
+
+  /*
+   * The chosen star and every one before it — which is every *later* sibling,
+   * the row being reversed. A radio's own label is its next sibling, so the
+   * chosen one is covered by the same rule.
+   */
+  .reviews__star-input:checked ~ .reviews__star {
+    color: var(--rating-star, #b8862b);
+  }
+
+  /*
+   * While the row is being pointed at, the pointer wins outright: without this
+   * an already-chosen four would stay lit under a hover over two, and the row
+   * would read as four rather than as the two about to be picked. Ordered
+   * after the `:checked` rule above, which it ties with on specificity.
+   */
+  .reviews__stars:hover .reviews__star {
+    color: var(--rating-track, rgb(0 0 0 / 18%));
+  }
+
+  .reviews__stars:hover .reviews__star:hover,
+  .reviews__stars:hover .reviews__star:hover ~ .reviews__star {
+    color: var(--rating-star, #b8862b);
+  }
+
+  .reviews__star-input:focus-visible + .reviews__star {
+    outline: 2px solid var(--reviews-accent, #0d463d);
+    outline-offset: 1px;
+  }
+
+  .reviews__notice {
+    margin-bottom: 1rem;
+    color: var(--reviews-accent, #0d463d);
+  }
+
+  /*
+   * `default_errors` writes a bare `<ul class="errors">`, so this is the only
+   * place its wording can be styled from.
+   */
+  .reviews__errors {
+    margin-bottom: 1rem;
+  }
+
+  .reviews__errors .errors {
+    padding: 0;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--reviews-error, #a5361a);
+    list-style: none;
+  }
+
+  .reviews__submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.875rem 1.75rem;
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--reviews-button-text, #ffffff);
+    cursor: pointer;
+    background-color: var(--reviews-button-bg, #0d463d);
+    border: 0;
+    border-radius: var(--style-border-radius-inputs, 2px);
+    transition: opacity 150ms ease;
+  }
+
+  .reviews__submit:hover,
+  .reviews__submit:focus-visible {
+    opacity: 0.88;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "t:general.reviews",
+  "blocks": [{ "type": "@app" }],
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "t:labels.heading",
+      "default": "Reviews"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_summary",
+      "label": "t:labels.show_rating_summary",
+      "info": "t:info.rating_summary",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "t:general.review_list"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_list",
+      "label": "t:labels.show_review_list",
+      "info": "t:info.review_list",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "reviews_metafield",
+      "label": "t:labels.reviews_metafield",
+      "info": "t:info.reviews_metafield",
+      "default": "reviews.review_list",
+      "visible_if": "{{ section.settings.show_list }}"
+    },
+    {
+      "type": "text",
+      "id": "rating_field",
+      "label": "t:labels.rating_field",
+      "info": "t:info.review_fields",
+      "default": "rating",
+      "visible_if": "{{ section.settings.show_list }}"
+    },
+    {
+      "type": "text",
+      "id": "title_field",
+      "label": "t:labels.review_title_field",
+      "default": "title",
+      "visible_if": "{{ section.settings.show_list }}"
+    },
+    {
+      "type": "text",
+      "id": "body_field",
+      "label": "t:labels.review_body_field",
+      "default": "body",
+      "visible_if": "{{ section.settings.show_list }}"
+    },
+    {
+      "type": "text",
+      "id": "author_field",
+      "label": "t:labels.review_author_field",
+      "default": "author",
+      "visible_if": "{{ section.settings.show_list }}"
+    },
+    {
+      "type": "text",
+      "id": "date_field",
+      "label": "t:labels.review_date_field",
+      "default": "date",
+      "visible_if": "{{ section.settings.show_list }}"
+    },
+    {
+      "type": "range",
+      "id": "reviews_to_show",
+      "label": "t:labels.reviews_to_show",
+      "info": "t:info.reviews_to_show",
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "default": 5,
+      "visible_if": "{{ section.settings.show_list }}"
+    },
+    {
+      "type": "header",
+      "content": "t:general.review_form"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_form",
+      "label": "t:labels.show_review_form",
+      "info": "t:info.review_form",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "form_note",
+      "label": "t:labels.form_note",
+      "info": "t:info.review_form_note",
+      "default": "Reviews are read before they appear.",
+      "visible_if": "{{ section.settings.show_form }}"
+    },
+    {
+      "type": "header",
+      "content": "t:general.colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "t:labels.background_color",
+      "default": "#F9F8F4"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "t:labels.text_color",
+      "default": "#1C2320"
+    },
+    {
+      "type": "color",
+      "id": "panel_background_color",
+      "label": "t:labels.panel_background_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "star_color",
+      "label": "t:labels.star_color",
+      "default": "#B8862B"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "t:labels.accent_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "button_background_color",
+      "label": "t:labels.button_background_color",
+      "default": "#0D463D"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "t:labels.button_text_color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "error_color",
+      "label": "t:labels.error_color",
+      "default": "#A5361A"
+    }
+  ],
+  "presets": [
+    {
+      "name": "t:general.reviews"
+    }
+  ],
+  "enabled_on": {
+    "templates": ["product"]
+  }
+}
+{% endschema %}

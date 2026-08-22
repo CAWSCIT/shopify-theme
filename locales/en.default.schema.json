@@ -1,3 +1,12 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin language editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
 {
   "general": {
     "404": "Not found",
@@ -47,6 +56,9 @@
     "register": "Create account",
     "related_products": "Related products",
     "reset_password": "Reset password",
+    "review_form": "Review form",
+    "review_list": "Review list",
+    "reviews": "Reviews",
     "row": "Row",
     "search": "Search",
     "secondary": "Secondary",
@@ -159,7 +171,19 @@
     "text_color": "Text color",
     "text_style": "Text style",
     "text": "Text",
-    "variant_limit": "Variants to list"
+    "variant_limit": "Variants to list",
+    "form_note": "Note above the form",
+    "rating_field": "Rating field",
+    "review_author_field": "Author field",
+    "review_body_field": "Review field",
+    "review_date_field": "Date field",
+    "review_title_field": "Headline field",
+    "reviews_metafield": "Reviews metafield",
+    "reviews_to_show": "Reviews to show",
+    "show_rating_summary": "Show the average rating",
+    "show_review_form": "Show the review form",
+    "show_review_list": "Show the reviews",
+    "star_color": "Star color"
   },
   "info": {
     "after_add": "Staying put suits ordering several things in a row — the cart count in the header confirms each add.",
@@ -220,7 +244,14 @@
     "primary_font_weights": "The theme loads weights 300, 400, 500, 600 and 700. Any of those a font doesn't ship is synthesised by the browser.",
     "logo_fallback": "Leave blank to use the logo bundled with the theme.",
     "social_image": "Shown when a link to the store is shared on social media or in a chat, on every page that has no image of its own. Products, collections and articles use their own. 1200 × 630 is the shape most services crop to.",
-    "footer_menu": "Each top-level menu item becomes a column heading, and its nested items become the links below it."
+    "footer_menu": "Each top-level menu item becomes a column heading, and its nested items become the links below it.",
+    "rating_summary": "The stars and average beside the heading, read from the reviews.rating and reviews.rating_count metafields that review apps write to. Falls back to the average of the reviews listed below when no app has set them.",
+    "review_fields": "The keys of the fields on the review metaobject, as named when it was defined. A field that isn't there is left out of the review.",
+    "review_form": "Emails each review to the store's contact address — a storefront can't publish one on its own, so someone adds it in the admin. Turn this off on a store running a review app, and use the app's form instead.",
+    "review_form_note": "Sits under the heading, for anything worth saying about what happens to a review once it's sent. Leave blank to hide it.",
+    "review_list": "The reviews themselves, read from a list of metaobject entries on the product. Leave this off on a store whose review app renders its own list in the app block above.",
+    "reviews_metafield": "Written as namespace.key, for example reviews.review_list. Points at a product metafield holding a list of review metaobjects. Products without it just show no reviews.",
+    "reviews_to_show": "How many reviews are listed before the rest fold away behind a link. Shopify caps the list at 50 whatever you pick."
   },
   "options": {
     "after_add": {
