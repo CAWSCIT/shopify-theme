@@ -195,6 +195,8 @@
   "general": {
     "accessibility": {
       "alert": "Store alert",
+      "dismiss": "Dismiss",
+      "notifications": "Notifications",
       "open_menu": "Open menu",
       "skip_to_content": "Skip to content"
     },
@@ -239,7 +241,7 @@
     "add_error": "That couldn't be added to the cart. Please try again.",
     "add_to_cart_label": "Add {{ title }} to cart",
     "add_to_cart_total_html": "Add to cart — {{ total }}",
-    "added": "Added to cart",
+    "added_toast": "{{ title }} added to cart",
     "choose": "Choose",
     "decrease_quantity": "Decrease quantity",
     "decrease_quantity_label": "Decrease quantity for {{ title }}",
@@ -247,8 +249,19 @@
     "in_stock": "In stock.",
     "increase_quantity": "Increase quantity",
     "increase_quantity_label": "Increase quantity for {{ title }}",
+    "option_count": {
+      "one": "{{ count }} option",
+      "other": "{{ count }} options"
+    },
     "option_range_html": "{{ first }} to {{ last }}",
     "out_of_stock": "Out of stock.",
+    "price": {
+      "each": "each",
+      "each_price_html": "{{ price }} each",
+      "from_price_html": "From {{ price }}",
+      "regular_price": "Regular price",
+      "sale_price": "Sale price"
+    },
     "quantity": "Quantity",
     "quantity_label": "Quantity for {{ title }}",
     "show_image": "Show image {{ index }}",
@@ -258,18 +271,7 @@
     "variant": "Variant",
     "view_all": "View all",
     "view_all_options": "See all {{ count }} options",
-    "view_details": "View full details",
-    "option_count": {
-      "one": "{{ count }} option",
-      "other": "{{ count }} options"
-    },
-    "price": {
-      "each": "each",
-      "each_price_html": "{{ price }} each",
-      "from_price_html": "From {{ price }}",
-      "regular_price": "Regular price",
-      "sale_price": "Sale price"
-    }
+    "view_details": "View full details"
   },
   "password": {
     "title": "This shop is private",

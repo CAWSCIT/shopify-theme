@@ -1,0 +1,326 @@
+{% doc %}
+  Renders the stack that transient confirmations rise into — "Added to cart"
+  and the like — and the `showToast` function that fills it.
+
+  Rendered once from the layout rather than beside whatever raises it, because
+  a toast outlives its origin: a shopper who adds from a product row and
+  immediately scrolls on should still see the confirmation, and a message
+  anchored to the row would have left with it.
+
+  Call it from anywhere on the page:
+
+    window.showToast('Added to cart');
+    window.showToast("That's out of stock", { variant: 'error' });
+
+  Toasts stack, oldest at the top, and only ever four at once — a shopper
+  working quickly down a list of literature can outrun a five second timer, and
+  a column of them tall enough to reach the header is worse than none.
+
+  @example
+  {% render 'toast' %}
+{% enddoc %}
+
+{% # The visual stack is deliberately *not* a live region. Sliding a node in
+   # and out of one makes screen readers announce arrivals and departures both,
+   # and the departure is meaningless. The two empty regions below do the
+   # announcing instead, which also lets an error interrupt where a
+   # confirmation waits its turn. %}
+<div
+  class="toast-stack"
+  data-toast-stack
+  role="region"
+  aria-label="{{ 'general.accessibility.notifications' | t }}"
+></div>
+
+<div class="sr-only" data-toast-announcer="polite" aria-live="polite"></div>
+<div class="sr-only" data-toast-announcer="assertive" aria-live="assertive"></div>
+
+{% # Cloned per toast, so every string and the icon stay in Liquid. Liquid is
+   # not rendered inside a javascript tag, so a message built in script could
+   # never be translated. %}
+<template data-toast-template>
+  <div class="toast-stack__item">
+    <div class="toast">
+      <p class="toast__message"></p>
+
+      <button
+        type="button"
+        class="toast__close"
+        data-toast-close
+        aria-label="{{ 'general.accessibility.dismiss' | t }}"
+      >
+        {{- 'icon-close.svg' | inline_asset_content -}}
+      </button>
+    </div>
+  </div>
+</template>
+
+{% stylesheet %}
+  /*
+   * Full width along the bottom edge on a phone, where a narrow card would
+   * waste the only room there is, and a fixed column in the bottom corner from
+   * `sm` up.
+   *
+   * The wrapper only supplies the margin and lets clicks through it —
+   * otherwise an invisible strip across the bottom of every page would swallow
+   * taps on whatever the toasts don't cover. The toasts themselves take
+   * pointer events back.
+   *
+   * Above the cookie banner's 60: the banner is the more important of the two,
+   * but it's also the one that stays put, and a toast that appears underneath
+   * it reads as a bug.
+   */
+  .toast-stack {
+    position: fixed;
+    z-index: 70;
+    inset-inline: 0;
+    inset-block-end: 0;
+    display: flex;
+    flex-direction: column;
+    padding: var(--page-margin);
+    pointer-events: none;
+  }
+
+  @media (min-width: 40rem) {
+    .toast-stack {
+      inset-inline-start: auto;
+      width: min(24rem, 100vw - (2 * var(--page-margin)));
+    }
+  }
+
+  /*
+   * The item is the clipping frame the toast slides out of, and the thing whose
+   * height animates so the toasts above it move over rather than jump. Its
+   * height is driven from script: `auto` is not a value a transition can start
+   * from, so each end of the animation has to be a real pixel length.
+   */
+  .toast-stack__item {
+    overflow: hidden;
+    pointer-events: auto;
+    transition: height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /*
+   * Margin rather than the stack's `gap`, for two reasons: it collapses to zero
+   * with the height on the way out, so the gap doesn't outlive the toast, and
+   * it leaves room inside the clipping frame for the shadow, which `overflow:
+   * hidden` would otherwise cut square.
+   */
+  .toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0.25rem 0.375rem 0.5rem;
+    padding: 0.875rem 0.75rem 0.875rem 1rem;
+    border-radius: var(--style-border-radius-inputs);
+    background-color: var(--toast-bg, var(--color-foreground));
+    color: var(--toast-text, var(--color-background));
+    box-shadow:
+      0 10px 30px -12px rgb(0 0 0 / 0.45),
+      0 2px 6px rgb(0 0 0 / 0.16);
+    font-size: 0.9375rem;
+    line-height: 1.4;
+
+    /* Starts below its own frame and rises into it. */
+    opacity: 0;
+    transform: translateY(calc(100% + 1rem));
+    transition:
+      opacity 0.28s ease,
+      transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .toast-stack__item[data-visible] .toast {
+    opacity: 1;
+    transform: none;
+  }
+
+  /*
+   * Red rather than the inverted page colours, since this one is worth reading
+   * before it goes. Fixed values: the theme's palette has no error colour to
+   * derive one from, and a merchant's foreground could be any hue.
+   */
+  .toast--error {
+    --toast-bg: #9b2c2c;
+    --toast-text: #fff;
+  }
+
+  .toast__message {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    /* Long product titles wrap rather than stretching the card off screen. */
+    overflow-wrap: anywhere;
+  }
+
+  .toast__close {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin: -0.3125rem 0 -0.3125rem 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+    transition:
+      opacity 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .toast__close > svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .toast__close:hover,
+  .toast__close:focus-visible {
+    opacity: 1;
+    background-color: rgb(255 255 255 / 0.14);
+  }
+
+  /*
+   * The slide is decoration; the message is not. Reduced motion keeps the
+   * appearance and drops the travel, so a toast still arrives and still leaves
+   * — instantly.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .toast-stack__item,
+    .toast {
+      transition-duration: 0.01ms;
+    }
+
+    .toast {
+      transform: none;
+    }
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  // Fills the stack rendered above. Everything that calls this treats it as
+  // optional — the theme works without a confirmation, so a missing container
+  // is a silent no-op rather than an exception on the way to the cart.
+  (() => {
+    const VISIBLE_MS = 5000;
+    const ENTER_MS = 320;
+    const EXIT_MS = 320;
+    const MAX_VISIBLE = 4;
+
+    // A toast's pending dismissal, kept off the element itself so nothing in
+    // the DOM has to carry script state.
+    const timers = new WeakMap();
+
+    function announce(message, variant) {
+      const politeness = variant === 'error' ? 'assertive' : 'polite';
+      const region = document.querySelector(`[data-toast-announcer="${politeness}"]`);
+      if (!region) return;
+
+      // Writing the same text into a live region twice running is a no-op, and
+      // adding two of the same thing to a cart is exactly when that happens.
+      // Clearing first, a frame apart, makes the second one land.
+      region.textContent = '';
+      window.setTimeout(() => {
+        region.textContent = message;
+      }, 60);
+    }
+
+    function dismiss(item) {
+      if (!item || item.hasAttribute('data-leaving')) return;
+      item.setAttribute('data-leaving', '');
+      window.clearTimeout(timers.get(item));
+
+      // Pin the height it currently has before animating it to nothing, so the
+      // toasts above close the gap as this one drops.
+      item.style.height = `${item.offsetHeight}px`;
+      void item.offsetHeight;
+
+      item.removeAttribute('data-visible');
+      item.style.height = '0px';
+
+      window.setTimeout(() => item.remove(), EXIT_MS + 60);
+    }
+
+    // Restartable, because the timer is paused whenever a shopper is plainly
+    // still reading: five seconds is short, and a pointer resting on a toast or
+    // focus inside it says the message hasn't been taken in yet.
+    function scheduleDismissal(item, remaining) {
+      let left = remaining;
+      let startedAt = Date.now();
+
+      const start = () => {
+        startedAt = Date.now();
+        timers.set(item, window.setTimeout(() => dismiss(item), left));
+      };
+
+      const pause = () => {
+        window.clearTimeout(timers.get(item));
+        left = Math.max(left - (Date.now() - startedAt), 800);
+      };
+
+      item.addEventListener('pointerenter', pause);
+      item.addEventListener('pointerleave', start);
+      item.addEventListener('focusin', pause);
+      item.addEventListener('focusout', start);
+
+      start();
+    }
+
+    function show(message, options = {}) {
+      const stack = document.querySelector('[data-toast-stack]');
+      const template = document.querySelector('[data-toast-template]');
+      if (!stack || !template || !message) return null;
+
+      const item = template.content.firstElementChild.cloneNode(true);
+      const variant = options.variant === 'error' ? 'error' : 'success';
+
+      item.querySelector('.toast__message').textContent = message;
+      if (variant === 'error') item.querySelector('.toast').classList.add('toast--error');
+
+      // Appended last, so the newest sits closest to the corner the eye is
+      // already in after clicking something down there.
+      stack.appendChild(item);
+
+      // Measure at its natural height, then collapse and grow back into it.
+      const target = item.offsetHeight;
+      item.style.height = '0px';
+      void item.offsetHeight;
+      item.style.height = `${target}px`;
+      item.setAttribute('data-visible', '');
+
+      // Back to `auto` once it has arrived, so a toast whose text reflows —
+      // a narrow window rotated, say — isn't stuck at the height it was born at.
+      window.setTimeout(() => {
+        if (!item.hasAttribute('data-leaving')) item.style.height = 'auto';
+      }, ENTER_MS + 60);
+
+      announce(message, variant);
+
+      const duration = Number.isFinite(options.duration) ? options.duration : VISIBLE_MS;
+      scheduleDismissal(item, duration);
+
+      // Oldest first: the one that has had the longest to be read is the one
+      // that can be spared.
+      //
+      // Counted over the toasts that aren't already on their way out.
+      // `dismiss` starts an animation and leaves the node in place until it
+      // finishes, so counting every child would never see the number come
+      // down — and a loop waiting for it would never end.
+      const live = Array.from(stack.children).filter((child) => !child.hasAttribute('data-leaving'));
+      live.slice(0, Math.max(0, live.length - MAX_VISIBLE)).forEach(dismiss);
+
+      return item;
+    }
+
+    // One delegated listener rather than one per toast, so nothing has to be
+    // unbound when a toast is removed.
+    document.addEventListener('click', (event) => {
+      const close = event.target.closest && event.target.closest('[data-toast-close]');
+      if (close) dismiss(close.closest('.toast-stack__item'));
+    });
+
+    window.showToast = show;
+  })();
+{% endjavascript %}

@@ -73,5 +73,9 @@
     </main>
 
     {% sections 'footer-group' %}
+
+    {% # The stack transient confirmations rise into. Rendered last so it sits
+       # above the page without needing to win on z-index alone. %}
+    {% render 'toast' %}
   </body>
 </html>

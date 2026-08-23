@@ -155,7 +155,7 @@
           class="product-row__form"
           data-quantity-form
           data-cart-url="{{ routes.cart_url }}"
-          data-added-message="{{ 'products.added' | t | escape }}"
+          data-added-message="{{ 'products.added_toast' | t: title: product.title | escape }}"
           data-error-message="{{ 'products.add_error' | t | escape }}"
         >
           <input type="hidden" name="form_type" value="product">
@@ -184,13 +184,6 @@
         </div>
       {%- endif -%}
     </div>
-
-    {% # Present but empty, rather than created on demand: a live region has to
-       # already be in the accessibility tree for a change to be announced.
-       # Expandable rows have no add form of their own, so they get none. %}
-    {%- unless has_variants -%}
-      <div class="product-row__status text-sm leading-snug" role="status" data-quantity-status></div>
-    {%- endunless -%}
   </div>
 {%- endcapture -%}
 
@@ -232,7 +225,7 @@
                   class="product-row__form"
                   data-quantity-form
                   data-cart-url="{{ routes.cart_url }}"
-                  data-added-message="{{ 'products.added' | t | escape }}"
+                  data-added-message="{{ 'products.added_toast' | t: title: variant_label | escape }}"
                   data-error-message="{{ 'products.add_error' | t | escape }}"
                 >
                   <input type="hidden" name="form_type" value="product">
@@ -263,8 +256,6 @@
                 </div>
               {%- endif -%}
             </div>
-
-            <div class="product-row__status text-sm leading-snug" role="status" data-quantity-status></div>
           </li>
         {%- endfor -%}
       </ul>
@@ -292,11 +283,6 @@
    * up. The areas are named so the same markup serves both — only the track
    * list and the placement change.
    */
-  /*
-   * The `status` row is always in the template even when the message is empty,
-   * so the row-gap is kept at zero — an empty status then costs no height, and
-   * `.product-row__status:not(:empty)` supplies its own spacing when it fills.
-   */
   .product-row__main {
     display: grid;
     align-items: center;
@@ -305,8 +291,7 @@
     grid-template-areas:
       'media title  action'
       'media meta   action'
-      'media price  action'
-      'status status status';
+      'media price  action';
     padding: 0.875rem 1rem;
   }
 
@@ -314,9 +299,7 @@
     .product-row__main {
       gap: 0 1.5rem;
       grid-template-columns: auto minmax(0, 1fr) minmax(0, 10rem) minmax(0, 6.5rem) auto;
-      grid-template-areas:
-        'media title meta price action'
-        'status status status status status';
+      grid-template-areas: 'media title meta price action';
       padding: 1rem 1.25rem;
     }
   }
@@ -394,19 +377,6 @@
     display: flex;
     align-items: stretch;
     gap: 0.5rem;
-  }
-
-  .product-row__status {
-    grid-area: status;
-  }
-
-  /* Only pays for its spacing once it has something to say. */
-  .product-row__status:not(:empty) {
-    margin-top: 0.5rem;
-  }
-
-  .product-row__status[data-error] {
-    color: var(--row-error, #9b2c2c);
   }
 
   /*
@@ -516,8 +486,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'title  action'
-      'price  action'
-      'status status';
+      'price  action';
     padding: 0.5rem 0;
   }
 
@@ -525,9 +494,7 @@
     .product-row__variant {
       gap: 0 1rem;
       grid-template-columns: minmax(0, 1fr) minmax(0, 7rem) auto;
-      grid-template-areas:
-        'title price action'
-        'status status status';
+      grid-template-areas: 'title price action';
     }
   }
 
@@ -570,22 +537,20 @@
   // One delegated listener covers every row on the page, including rows the
   // theme editor re-renders, so there's nothing to re-initialise.
   (() => {
-    const ADDED_MESSAGE_MS = 4000;
+    // Confirmations go to the shared toast stack (see `snippets/toast.liquid`)
+    // rather than into the row. A row is a few lines tall and a list of them
+    // fills the screen, so a message printed in place is as likely to be below
+    // the fold as not — and adding from the last visible row scrolls nothing
+    // into view. The toast is always in the same corner.
+    //
+    // Both messages name the product, which is the thing the row itself used to
+    // supply by sitting next to it.
+    function notify(message, isError) {
+      if (!message) return;
 
-    // The form and its status share a grid container, which is what scopes the
-    // lookup — a product row holds its variants' statuses too, so searching the
-    // whole row would find the wrong one.
-    function statusFor(form) {
-      const scope = form.closest('.product-row__main, .product-row__variant');
-      return scope ? scope.querySelector('[data-quantity-status]') : null;
-    }
-
-    function setStatus(form, message, isError) {
-      const status = statusFor(form);
-      if (!status) return;
-
-      status.textContent = message;
-      status.toggleAttribute('data-error', Boolean(isError));
+      if (typeof window.showToast === 'function') {
+        window.showToast(message, { variant: isError ? 'error' : 'success' });
+      }
     }
 
     // The header renders a count for the mobile row and another for desktop, so
@@ -626,7 +591,6 @@
 
       form.dataset.busy = 'true';
       if (button) button.disabled = true;
-      setStatus(form, '', false);
 
       try {
         const response = await fetch(`${form.getAttribute('action')}.js`, {
@@ -645,7 +609,7 @@
         if (!response.ok) {
           // Shopify explains the refusal in `description` — most often that the
           // quantity asked for is more than the stock left.
-          setStatus(form, result.description || result.message || form.dataset.errorMessage, true);
+          notify(result.description || result.message || form.dataset.errorMessage, true);
           return;
         }
 
@@ -655,10 +619,9 @@
         // accidental second click into an order nobody meant to place.
         quantityField.value = 1;
 
-        setStatus(form, form.dataset.addedMessage, false);
-        window.setTimeout(() => setStatus(form, '', false), ADDED_MESSAGE_MS);
+        notify(form.dataset.addedMessage, false);
       } catch (error) {
-        setStatus(form, form.dataset.errorMessage, true);
+        notify(form.dataset.errorMessage, true);
       } finally {
         delete form.dataset.busy;
         if (button) button.disabled = false;
