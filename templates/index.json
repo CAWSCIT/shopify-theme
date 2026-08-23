@@ -77,6 +77,7 @@
       ],
       "name": "t:general.link_cards",
       "settings": {
+        "heading_tag": "h1",
         "heading": "Literature, keytags and medallions from the World Service Office.",
         "subheading": "Everything C.A. approved, in one place.",
         "media_aspect_ratio": "1 / 1",
@@ -84,23 +85,39 @@
         "columns_desktop": 6,
         "columns_mobile": "2",
         "grid_gap": 20,
-        "background_color": "#F9F8F4",
-        "text_color": "#1C2320",
-        "card_background_color": "#FFFFFF",
-        "media_background_color": "#EAE6DC"
+        "background_color": "#f9f8f4",
+        "text_color": "#1c2320",
+        "card_background_color": "#ffffff",
+        "media_background_color": "#eae6dc"
+      }
+    },
+    "information_k97XCK": {
+      "type": "information",
+      "name": "t:general.information",
+      "settings": {
+        "heading": "Things you need to know",
+        "text": "Cocaine Anonymous is an online store, all orders must be made online. Phone, email and mail-in orders cannot be processed anymore.",
+        "button_label": "See saved orders",
+        "button_url": "",
+        "section_background_color": "#f9f8f4",
+        "background_color": "#00594f",
+        "text_color": "#ffffff",
+        "button_background_color": "#0d463d",
+        "button_text_color": "#ffffff"
       }
     },
     "featured_products": {
       "type": "featured-products",
       "settings": {
-        "heading": "Books and literature",
-        "collection": "automated-collection",
+        "heading_tag": "h2",
+        "heading": "Keytags",
+        "collection": "keytags",
         "products_to_show": 4,
         "show_view_all": true,
-        "view_all_label": "All books",
+        "view_all_label": "All keytags",
         "subtitle_source": "metafield",
         "subtitle_metafield": "custom.subtitle",
-        "media_aspect_ratio": "3 / 4",
+        "media_aspect_ratio": "1 / 1",
         "columns_desktop": 4,
         "columns_mobile": "2",
         "grid_gap": 20,
@@ -115,19 +132,78 @@
       "type": "feature-split",
       "name": "t:general.feature_split",
       "settings": {
-        "eyebrow": "Order by December 10",
-        "heading": "Christmas delivery cutoff",
-        "text": "Anything ordered after the tenth may not arrive before the holiday. If your group hands out tags at a Christmas meeting, order early.",
+        "eyebrow": "We've heard your feedback.",
+        "heading_tag": "h2",
+        "heading": "New shop design",
+        "text": "The Cocaine Anonymous World Service Shop has been redesigned to accommodate fellowship sales.",
         "button_label": "Shop keytags",
         "button_url": "",
-        "image": "shopify://shop_images/Main_9129b69a-0c7b-4f66-b6cf-c4222f18028a.jpg",
+        "image": "shopify://shop_images/cawso-store-front.jpg",
         "image_position": "feature-split--media-right",
-        "section_background_color": "#F9F8F4",
-        "background_color": "#EAE6DC",
-        "text_color": "#1C2320",
-        "eyebrow_color": "#0D463D",
-        "button_background_color": "#0D463D",
-        "button_text_color": "#FFFFFF"
+        "section_background_color": "#f9f8f4",
+        "background_color": "#eae6dc",
+        "text_color": "#1c2320",
+        "eyebrow_color": "#0d463d",
+        "button_background_color": "#0d463d",
+        "button_text_color": "#ffffff"
+      }
+    },
+    "featured_products_z3QJVz": {
+      "type": "featured-products",
+      "blocks": {
+        "pinned_product_caBtbA": {
+          "type": "pinned_product",
+          "settings": {
+            "product": "pamphlets",
+            "variant": "Tools of Recovery"
+          }
+        },
+        "pinned_product_JEim7e": {
+          "type": "pinned_product",
+          "settings": {
+            "product": "pamphlets",
+            "variant": "The First 30 Days"
+          }
+        },
+        "pinned_product_jJr4tD": {
+          "type": "pinned_product",
+          "settings": {
+            "product": "pamphlets",
+            "variant": "Unity"
+          }
+        },
+        "pinned_product_8beHTK": {
+          "type": "pinned_product",
+          "settings": {
+            "product": "pamphlets",
+            "variant": "What is C.A.?"
+          }
+        }
+      },
+      "block_order": [
+        "pinned_product_caBtbA",
+        "pinned_product_JEim7e",
+        "pinned_product_jJr4tD",
+        "pinned_product_8beHTK"
+      ],
+      "settings": {
+        "heading_tag": "h2",
+        "heading": "Pamphlets",
+        "collection": "pamphlets-1",
+        "products_to_show": 4,
+        "show_view_all": true,
+        "view_all_label": "All pamphlets",
+        "subtitle_source": "metafield",
+        "subtitle_metafield": "custom.subtitle",
+        "media_aspect_ratio": "1 / 1",
+        "columns_desktop": 4,
+        "columns_mobile": "2",
+        "grid_gap": 20,
+        "background_color": "#f9f8f4",
+        "text_color": "#1c2320",
+        "link_color": "#0d463d",
+        "card_background_color": "#ffffff",
+        "media_background_color": "#eae6dc"
       }
     },
     "collections_eyXi3g": {
@@ -135,6 +211,8 @@
       "name": "t:general.collections_grid",
       "settings": {
         "show_heading": true,
+        "heading": "",
+        "heading_tag": "h1",
         "show_description": true,
         "show_price": true,
         "media_size": 88,
@@ -142,17 +220,19 @@
         "columns_desktop": 3,
         "columns_mobile": "1",
         "grid_gap": 20,
-        "background_color": "#F9F8F4",
-        "text_color": "#1C2320",
-        "card_background_color": "#FFFFFF",
-        "media_background_color": "#EAE6DC"
+        "background_color": "#f9f8f4",
+        "text_color": "#1c2320",
+        "card_background_color": "#ffffff",
+        "media_background_color": "#eae6dc"
       }
     }
   },
   "order": [
     "link_cards_cNNwHJ",
+    "information_k97XCK",
     "featured_products",
     "feature_split_mAqrin",
+    "featured_products_z3QJVz",
     "collections_eyXi3g"
   ]
 }

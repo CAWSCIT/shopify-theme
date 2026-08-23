@@ -3,6 +3,12 @@
   # number the grid can repeat.
   assign columns_mobile = section.settings.columns_mobile | plus: 0
   assign columns_desktop = section.settings.columns_desktop
+  # Exactly one heading on a page should be its `h1` — it's what a search
+  # engine reads as the answer to "what is this page about", and a page with
+  # two gives it no answer at all. Which section that is depends on where the
+  # section is placed, so it's the merchant's call, and everything defaults to
+  # `h2` so that adding a section can never quietly introduce a second `h1`.
+  assign heading_tag = section.settings.heading_tag | default: 'h2'
 -%}
 
 <section
@@ -24,7 +30,9 @@
     {%- if section.settings.heading != blank or section.settings.subheading != blank -%}
       <div class="flex max-w-3xl flex-col gap-3">
         {%- if section.settings.heading != blank -%}
-          <h2 class="font-serif text-4xl leading-tight font-light lg:text-5xl">{{ section.settings.heading }}</h2>
+          <{{ heading_tag }} class="font-serif text-4xl leading-tight font-light lg:text-5xl">
+            {{- section.settings.heading -}}
+          </{{ heading_tag }}>
         {%- endif -%}
 
         {%- if section.settings.subheading != blank -%}
@@ -70,6 +78,17 @@
   "max_blocks": 6,
   "blocks": [{ "type": "link-card" }],
   "settings": [
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "t:labels.heading_tag",
+      "info": "t:info.heading_tag",
+      "default": "h2",
+      "options": [
+        { "value": "h1", "label": "t:options.heading_tag.h1" },
+        { "value": "h2", "label": "t:options.heading_tag.h2" }
+      ]
+    },
     {
       "type": "text",
       "id": "heading",

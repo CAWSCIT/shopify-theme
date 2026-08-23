@@ -1,6 +1,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="{{ settings.background_color }}">
 
 {%- liquid
   assign og_title = page_title | default: shop.name
@@ -14,6 +15,23 @@
     assign og_type = 'article'
   elsif request.page_type == 'password'
     assign og_url = request.origin
+  endif
+
+  # Pages that are either private to one shopper, endlessly variable, or a dead
+  # end for someone arriving from a search result. Indexing them spends crawl
+  # budget on URLs that can never rank and, in the case of search, fills the
+  # index with near-duplicate thin pages built from whatever anyone happened to
+  # type. Shopify's robots.txt already disallows most of these, but a
+  # disallowed URL can still be indexed from an inbound link — only `noindex`
+  # keeps it out, and a crawler has to be let in to read it, hence `follow`
+  # rather than `nofollow`.
+  assign noindex = false
+  assign noindex_types = 'cart,search,404,gift_card,password,captcha' | split: ','
+  if noindex_types contains request.page_type
+    assign noindex = true
+  endif
+  if request.page_type contains 'customers/'
+    assign noindex = true
   endif
 
   # Products, collections and articles bring their own image. Everything else —
@@ -35,7 +53,14 @@
     assign share_height = share_width | times: share_image.height | divided_by: share_image.width
     assign share_url = share_image | image_url: width: share_width | prepend: 'https:'
   endif
-%}
+-%}
+
+{%- if noindex -%}
+  <meta
+    name="robots"
+    content="noindex, follow"
+  >
+{%- endif -%}
 
 <meta
   property="og:site_name"
@@ -56,6 +81,10 @@
 <meta
   property="og:description"
   content="{{ og_description | escape }}"
+>
+<meta
+  property="og:locale"
+  content="{{ request.locale.iso_code }}"
 >
 
 {%- if share_image != blank -%}
@@ -82,14 +111,100 @@
 {%- endif -%}
 
 {%- if request.page_type == 'product' -%}
+  {%- liquid
+    # The variant the page is actually showing, not the product's cheapest.
+    # Landing on ?variant=… and unfurling a price from a different variant is
+    # the kind of mismatch that gets a merchant a Merchant Center warning.
+    assign og_variant = product.selected_or_first_available_variant
+
+    if og_variant.available
+      assign og_availability = 'in stock'
+    else
+      assign og_availability = 'out of stock'
+    endif
+
+    # `cart.currency` rather than `shop.currency`: on a store selling into
+    # several markets these differ, and the price beside it is the presentment
+    # one.
+    assign og_currency = cart.currency.iso_code
+    assign og_amount = og_variant.price | money_without_currency | strip_html
+  -%}
+
+  {% # The `og:price:*` pair is what older unfurlers read; the `product:*`
+     # namespace is what Facebook's catalogue and Pinterest's rich pins want.
+     # They carry the same numbers, so there's nothing to keep in step. %}
   <meta
     property="og:price:amount"
-    content="{{ product.price | money_without_currency | strip_html }}"
+    content="{{ og_amount }}"
   >
   <meta
     property="og:price:currency"
-    content="{{ cart.currency.iso_code }}"
+    content="{{ og_currency }}"
   >
+  <meta
+    property="og:availability"
+    content="{{ og_availability }}"
+  >
+  <meta
+    property="product:price:amount"
+    content="{{ og_amount }}"
+  >
+  <meta
+    property="product:price:currency"
+    content="{{ og_currency }}"
+  >
+  <meta
+    property="product:availability"
+    content="{{ og_availability }}"
+  >
+  <meta
+    property="product:condition"
+    content="new"
+  >
+  {%- if product.vendor != blank -%}
+    <meta
+      property="product:brand"
+      content="{{ product.vendor | escape }}"
+    >
+  {%- endif -%}
+  {%- if og_variant.sku != blank -%}
+    <meta
+      property="product:retailer_item_id"
+      content="{{ og_variant.sku | escape }}"
+    >
+  {%- endif -%}
+{%- endif -%}
+
+{%- if request.page_type == 'article' -%}
+  {% # Dates go out in ISO 8601 UTC, the only format the Open Graph spec
+     # accepts. `article.published_at` is the authority on freshness, which is
+     # what a news or discovery surface sorts on. %}
+  <meta
+    property="article:published_time"
+    content="{{ article.published_at | date: '%Y-%m-%dT%H:%M:%S%z' }}"
+  >
+  <meta
+    property="article:modified_time"
+    content="{{ article.updated_at | default: article.published_at | date: '%Y-%m-%dT%H:%M:%S%z' }}"
+  >
+  {%- if article.author != blank -%}
+    <meta
+      property="article:author"
+      content="{{ article.author | escape }}"
+    >
+  {%- endif -%}
+  {%- if blog.title != blank -%}
+    <meta
+      property="article:section"
+      content="{{ blog.title | escape }}"
+    >
+  {%- endif -%}
+  {%- for tag in article.tags limit: 6 -%}
+    <meta
+      property="article:tag"
+      content="{{ tag | escape }}"
+    >
+  {%- endfor -%}
 {%- endif -%}
 
 <meta
@@ -105,6 +220,20 @@
   content="{{ og_description | escape }}"
 >
 
+{% # X falls back to `og:image` when this is absent, but Slack, Discord and
+   # LinkedIn each read a different one of the two — declaring both is what
+   # makes a link look the same everywhere it's pasted. %}
+{%- if share_image != blank -%}
+  <meta
+    name="twitter:image"
+    content="{{ share_url }}"
+  >
+  <meta
+    name="twitter:image:alt"
+    content="{{ og_title | escape }}"
+  >
+{%- endif -%}
+
 <title>
   {{ page_title }}
   {%- if current_tags %} &ndash; tagged "{{ current_tags | join: ', ' }}"{% endif -%}
@@ -116,6 +245,10 @@
   rel="canonical"
   href="{{ canonical_url }}"
 >
+
+{% # Shopify emits `hreflang` alternates into `content_for_header` for stores
+   # selling in more than one language or market. Writing a second set here
+   # would contradict the first, so this snippet deliberately doesn't. %}
 
 {% if page_description %}
   <meta

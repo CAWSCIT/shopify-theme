@@ -1,16 +1,21 @@
 {% doc %}
-  Renders the page's JSON-LD, for the search engines and link unfurlers that
-  read it. Nothing here is visible.
+  Renders the page's JSON-LD, for the search engines, answer engines and link
+  unfurlers that read it. Nothing here is visible.
 
-  Every page carries the store's identity — an Organization and a WebSite whose
-  SearchAction is what a sitelinks search box is built from. On top of that,
-  each page type adds what it has: a Product, an Article, and the breadcrumb
-  trail the page displays.
+  Every page carries the store's identity — an OnlineStore and a WebSite whose
+  SearchAction is what a sitelinks search box is built from. Both are given an
+  `@id` and cross-referenced, so a crawler reads one store described twice
+  rather than two unrelated things: that single node is what an answer engine
+  attaches the brand's name, logo and social profiles to.
+
+  On top of that, each page type adds what it has: a Product, an Article, a
+  CollectionPage listing what's on it, a Blog, and the breadcrumb trail the
+  page displays.
 
   Product and article markup comes from the `structured_data` filter, which is
   the only place Shopify will keep prices, availability and review counts in
-  step with the admin. The breadcrumbs are built here because there's no filter
-  for them.
+  step with the admin. Everything else is built here because there's no filter
+  for it.
 
   Strings go through `json` rather than `escape`: this is JSON, so a quote or a
   newline in a product title has to be escaped as JSON rather than as HTML.
@@ -24,6 +29,17 @@
   # reaches this markup from a feed rather than from the page.
   assign base_url = shop.url
 
+  # The two nodes every other node on the page points back to. Named with a
+  # fragment so they're stable across pages: the same `#organization` on the
+  # home page and on a product page is what merges them into one entity.
+  assign org_id = base_url | append: '#organization'
+  assign site_id = base_url | append: '#website'
+
+  # The dedicated brand logo first, since it's the one picked for small,
+  # square, plain-background use. The sharing image is a wide social card and
+  # only stands in where there's nothing better.
+  assign org_logo = settings.brand_logo | default: settings.favicon | default: settings.social_image
+
   # Shopify only sets `collection` on /collections/x/products/y URLs, so the
   # middle of a product's trail falls back the same way the visible breadcrumb
   # in `sections/product.liquid` does.
@@ -32,17 +48,59 @@
     assign breadcrumb_collection = product.collections.first
   endif
 
+  # `sameAs` is how a search engine confirms that this shop and the accounts
+  # posting under its name are the same organisation. Built by hand rather than
+  # with `join`, because a blank setting has to leave no empty string behind
+  # and no stray comma: a single trailing comma invalidates the whole block and
+  # costs the page every other node in it.
+  capture social_settings
+    echo settings.social_instagram_url
+    echo ','
+    echo settings.social_facebook_url
+    echo ','
+    echo settings.social_x_url
+    echo ','
+    echo settings.social_youtube_url
+    echo ','
+    echo settings.social_tiktok_url
+    echo ','
+    echo settings.social_pinterest_url
+    echo ','
+    echo settings.social_linkedin_url
+  endcapture
+
+  assign social_profiles = social_settings | split: ','
+  assign social_separator = ''
+  capture same_as
+    for social_link in social_profiles
+      assign social_url = social_link | strip
+      if social_url != blank
+        echo social_separator
+        echo social_url | json
+        assign social_separator = ','
+      endif
+    endfor
+  endcapture
 -%}
 
 <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": "OnlineStore",
+    "@id": {{ org_id | json }},
     "name": {{ shop.name | json }},
     "url": {{ base_url | json }}
-    {%- if settings.social_image != blank -%}
-      ,"logo": {{ settings.social_image | image_url: width: 512 | prepend: 'https:' | json }}
+    {%- if shop.description != blank -%}
+      ,"description": {{ shop.description | json }}
     {%- endif -%}
+    {%- if org_logo != blank -%}
+      ,"logo": {{ org_logo | image_url: width: 512 | prepend: 'https:' | json }}
+      ,"image": {{ org_logo | image_url: width: 512 | prepend: 'https:' | json }}
+    {%- endif -%}
+    {%- if same_as != blank -%}
+      ,"sameAs": [{{ same_as }}]
+    {%- endif -%}
+    ,"currenciesAccepted": {{ cart.currency.iso_code | json }}
   }
 </script>
 
@@ -50,8 +108,11 @@
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": {{ site_id | json }},
     "name": {{ shop.name | json }},
     "url": {{ base_url | json }},
+    "inLanguage": {{ request.locale.iso_code | json }},
+    "publisher": { "@id": {{ org_id | json }} },
     "potentialAction": {
       "@type": "SearchAction",
       {% # The search_term_string placeholder has to reach the output with its
@@ -118,6 +179,46 @@
     </script>
 
   {%- when 'collection' -%}
+    {% # The products themselves, as an ItemList. This is what lets a result
+       # for the collection show the items on it, and what an answer engine
+       # reads to say what a shop sells in a category without loading and
+       # parsing the grid. Capped at 24 — enough to describe the page, short of
+       # bloating the HTML of a collection holding hundreds.
+       #
+       # `position` counts from the start of the *page*, offset by nothing:
+       # page 2 restarts at 1, which is correct, because each page is its own
+       # CollectionPage with its own canonical. %}
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": {{ collection.title | json }},
+        "url": {{ base_url | append: collection.url | json }},
+        "isPartOf": { "@id": {{ site_id | json }} },
+        {%- if collection.description != blank -%}
+          "description": {{ collection.description | strip_html | truncate: 500 | json }},
+        {%- endif -%}
+        {%- if collection.image != blank -%}
+          "image": {{ collection.image | image_url: width: 1200 | prepend: 'https:' | json }},
+        {%- endif -%}
+        "mainEntity": {
+          "@type": "ItemList",
+          "numberOfItems": {{ collection.products_count }},
+          "itemListElement": [
+            {%- for item in collection.products limit: 24 -%}
+              {%- unless forloop.first -%},{%- endunless -%}
+              {
+                "@type": "ListItem",
+                "position": {{ forloop.index }},
+                "url": {{ base_url | append: item.url | json }},
+                "name": {{ item.title | json }}
+              }
+            {%- endfor -%}
+          ]
+        }
+      }
+    </script>
+
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -166,6 +267,99 @@
             "position": 3,
             "name": {{ article.title | json }},
             "item": {{ base_url | append: article.url | json }}
+          }
+        ]
+      }
+    </script>
+
+  {%- when 'blog' -%}
+    {% # A Blog node with its posts listed, so the index page is understood as
+       # the parent of the articles rather than as another page of links. Each
+       # article's own markup lives on the article page; the summary here only
+       # needs enough to identify it. %}
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Blog",
+        "name": {{ blog.title | json }},
+        "url": {{ base_url | append: blog.url | json }},
+        "isPartOf": { "@id": {{ site_id | json }} },
+        "publisher": { "@id": {{ org_id | json }} },
+        "blogPost": [
+          {%- for post in blog.articles limit: 12 -%}
+            {%- unless forloop.first -%},{%- endunless -%}
+            {
+              "@type": "BlogPosting",
+              "headline": {{ post.title | json }},
+              "url": {{ base_url | append: post.url | json }},
+              "datePublished": {{ post.published_at | date: '%Y-%m-%dT%H:%M:%S%z' | json }}
+              {%- if post.author != blank -%}
+                ,"author": { "@type": "Person", "name": {{ post.author | json }} }
+              {%- endif -%}
+              {%- if post.image != blank -%}
+                ,"image": {{ post.image | image_url: width: 1200 | prepend: 'https:' | json }}
+              {%- endif -%}
+            }
+          {%- endfor -%}
+        ]
+      }
+    </script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": {{ 'general.breadcrumb.home' | t | json }},
+            "item": {{ base_url | json }}
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": {{ blog.title | json }},
+            "item": {{ base_url | append: blog.url | json }}
+          }
+        ]
+      }
+    </script>
+
+  {%- when 'page' -%}
+    {% # Shop policies, size guides, about pages — the content an answer engine
+       # quotes when asked about shipping or returns. Naming the page as a
+       # WebPage under the store is what ties that answer back to this shop. %}
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": {{ page.title | json }},
+        "url": {{ base_url | append: page.url | json }},
+        "isPartOf": { "@id": {{ site_id | json }} },
+        "publisher": { "@id": {{ org_id | json }} }
+        {%- if page.content != blank -%}
+          ,"description": {{ page.content | strip_html | truncate: 500 | json }}
+        {%- endif -%}
+      }
+    </script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": {{ 'general.breadcrumb.home' | t | json }},
+            "item": {{ base_url | json }}
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": {{ page.title | json }},
+            "item": {{ base_url | append: page.url | json }}
           }
         ]
       }

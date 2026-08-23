@@ -8,6 +8,23 @@
     "theme_support_url": "https://support.shopify.com/"
   },
   {
+    "name": "t:general.brand",
+    "settings": [
+      {
+        "type": "image_picker",
+        "id": "brand_logo",
+        "label": "t:labels.logo",
+        "info": "t:info.brand_logo"
+      },
+      {
+        "type": "image_picker",
+        "id": "favicon",
+        "label": "t:labels.favicon",
+        "info": "t:info.favicon"
+      }
+    ]
+  },
+  {
     "name": "t:general.typography",
     "settings": [
       {
@@ -62,6 +79,46 @@
         "id": "social_image",
         "label": "t:labels.social_image",
         "info": "t:info.social_image"
+      },
+      {
+        "type": "header",
+        "content": "t:general.social_profiles",
+        "info": "t:info.social_profiles"
+      },
+      {
+        "type": "url",
+        "id": "social_instagram_url",
+        "label": "t:labels.social_instagram"
+      },
+      {
+        "type": "url",
+        "id": "social_facebook_url",
+        "label": "t:labels.social_facebook"
+      },
+      {
+        "type": "url",
+        "id": "social_x_url",
+        "label": "t:labels.social_x"
+      },
+      {
+        "type": "url",
+        "id": "social_youtube_url",
+        "label": "t:labels.social_youtube"
+      },
+      {
+        "type": "url",
+        "id": "social_tiktok_url",
+        "label": "t:labels.social_tiktok"
+      },
+      {
+        "type": "url",
+        "id": "social_pinterest_url",
+        "label": "t:labels.social_pinterest"
+      },
+      {
+        "type": "url",
+        "id": "social_linkedin_url",
+        "label": "t:labels.social_linkedin"
       }
     ]
   },

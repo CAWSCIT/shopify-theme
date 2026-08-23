@@ -67,6 +67,7 @@
     "settings": "Settings",
     "sidebar": "Sidebar",
     "social": "Social sharing",
+    "social_profiles": "Social profiles",
     "text": "Text",
     "theme": "Theme",
     "typography": "Typography",
@@ -184,7 +185,16 @@
     "show_rating_summary": "Show the average rating",
     "show_review_form": "Show the review form",
     "show_review_list": "Show the reviews",
-    "star_color": "Star color"
+    "star_color": "Star color",
+    "favicon": "Favicon",
+    "heading_tag": "Heading level",
+    "social_instagram": "Instagram",
+    "social_facebook": "Facebook",
+    "social_x": "X",
+    "social_youtube": "YouTube",
+    "social_tiktok": "TikTok",
+    "social_pinterest": "Pinterest",
+    "social_linkedin": "LinkedIn"
   },
   "info": {
     "after_add": "Staying put suits ordering several things in a row — the cart count in the header confirms each add.",
@@ -251,7 +261,12 @@
     "review_form_note": "Sits under the heading, for anything worth saying about what happens to a review once it's sent. Leave blank to hide it.",
     "review_list": "The reviews themselves, read from a list of metaobject entries on the product. Leave this off on a store whose review app renders its own list in the app block above.",
     "reviews_metafield": "Written as namespace.key, for example reviews.review_list. Points at a product metafield holding a list of review metaobjects. Products without it just show no reviews.",
-    "reviews_to_show": "How many reviews are listed before the rest fold away behind a link. Shopify caps the list at 50 whatever you pick."
+    "reviews_to_show": "How many reviews are listed before the rest fold away behind a link. Shopify caps the list at 50 whatever you pick.",
+    "brand_logo": "Used for the store's entry in search results and social previews, not on the page itself — the header and footer keep their own logo settings. A square image on a plain background reads best at small sizes. Falls back to the sharing image below.",
+    "favicon": "The small icon shown in browser tabs and bookmarks. Square, and at least 192 × 192 pixels so it stays sharp on retina screens and as a home-screen icon.",
+    "social_profiles": "Listed alongside the store in search results, so a search engine can tie these accounts to this shop. Leave blank what the store doesn't use.",
+    "heading_tag": "Only one section per page should use the page title level. It's what search engines read as the subject of the page, and two of them leaves the page with no clear subject.",
+    "collections_heading": "Leave blank to use “Collections”."
   },
   "options": {
     "after_add": {
@@ -313,6 +328,10 @@
       "narrow": "Narrow",
       "medium": "Medium",
       "wide": "Wide"
+    },
+    "heading_tag": {
+      "h1": "Page title (H1)",
+      "h2": "Section heading (H2)"
     }
   }
 }

@@ -17,6 +17,24 @@
       {{ settings.type_primary_font | font_url | preload_tag: as: 'font', crossorigin: 'anonymous' }}
     {% endunless %}
 
+    {% comment %}
+      Newsreader is the other half of the type, and it is the half that renders
+      the largest text on the page: every `h1` is `font-serif`, and on a product
+      page so is the price. That makes it the LCP font on most templates, but
+      it's self-hosted, so nothing discovers it until the inlined `@font-face`
+      block above has been parsed and the text it styles laid out. Preloading
+      the roman latin cut starts that fetch in the same breath as the CSS.
+
+      Only the one cut. The italic is used in a footer tagline, and latin-ext
+      only by currency symbols outside the latin block — preloading either
+      would download bytes most pages never paint.
+    {% endcomment %}
+    {{
+      'newsreader-variable.woff2'
+      | asset_url
+      | preload_tag: as: 'font', type: 'font/woff2', crossorigin: 'anonymous'
+    }}
+
     {% # Load and preload the critical CSS %}
     {{ 'critical.css' | asset_url | stylesheet_tag: preload: true }}
 
@@ -28,6 +46,9 @@
 
     {% # Social, title, etc. %}
     {% render 'meta-tags' %}
+
+    {% # Browser tab, bookmark and home-screen icons %}
+    {% render 'favicon' %}
 
     {{ content_for_header }}
   </head>

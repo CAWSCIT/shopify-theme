@@ -1,0 +1,37 @@
+{% doc %}
+  Renders the store's icon links — the browser tab, the bookmark, and the
+  home-screen icon an iOS shopper gets from "Add to Home Screen".
+
+  Three sizes rather than one: browsers pick the nearest declared size and
+  scale, so serving the 180px apple-touch icon into a 16px tab wastes bytes on
+  every page, and scaling a 32px icon up to a home-screen tile looks soft.
+  Each is cropped square by `image_url` so a merchant who uploads a
+  non-square image still gets a round tab icon instead of a letterboxed one.
+
+  Nothing renders without a favicon set — a missing `<link rel="icon">` makes
+  the browser fall back to /favicon.ico, which Shopify serves, whereas a link
+  pointing at nothing shows a blank tab.
+
+  @example
+  {% render 'favicon' %}
+{% enddoc %}
+
+{%- if settings.favicon != blank -%}
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="{{ settings.favicon | image_url: width: 32, height: 32, crop: 'center' }}"
+  >
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="192x192"
+    href="{{ settings.favicon | image_url: width: 192, height: 192, crop: 'center' }}"
+  >
+  <link
+    rel="apple-touch-icon"
+    sizes="180x180"
+    href="{{ settings.favicon | image_url: width: 180, height: 180, crop: 'center' }}"
+  >
+{%- endif -%}
