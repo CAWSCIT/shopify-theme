@@ -279,20 +279,48 @@
 
 {% stylesheet %}
   /*
-   * Stacked beside the thumbnail on a phone, spread into columns from tablet
-   * up. The areas are named so the same markup serves both — only the track
-   * list and the placement change.
+   * Three layouts off one set of named areas — only the track list and the
+   * placement change.
+   *
+   * The narrowest puts the action on a line of its own. Beside the title there
+   * is no room for it much under 30rem: the action track is sized to its
+   * contents, and neither the stepper nor a button with a `min-width` will
+   * shrink, so the only track that can give is the title's — which collapses
+   * to nothing and lets the text run out underneath the button. A line of its
+   * own also hands the title the full width to wrap into, which on a 320px
+   * screen is the difference between two lines and five.
    */
   .product-row__main {
     display: grid;
     align-items: center;
     gap: 0.125rem 1rem;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      'media title  action'
-      'media meta   action'
-      'media price  action';
+      'media title'
+      'media meta'
+      'media price'
+      'action action';
     padding: 0.875rem 1rem;
+  }
+
+  /* Reads as part of the row rather than as the top of the next one. */
+  .product-row__action {
+    margin-top: 0.625rem;
+  }
+
+  /* Wide enough for the control to sit beside the title again. */
+  @media (min-width: 30rem) {
+    .product-row__main {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        'media title  action'
+        'media meta   action'
+        'media price  action';
+    }
+
+    .product-row__action {
+      margin-top: 0;
+    }
   }
 
   @media (min-width: 48rem) {
