@@ -4,6 +4,12 @@
   # the shopper to agree to nothing.
   assign message = section.settings.message
 
+  # The section picker screenshots the section on its own; a banner that ships
+  # hidden and fixed to the viewport gives it nothing to photograph, hence the
+  # empty "No preview available" tile. In that render only, the panel is laid
+  # out in the flow of the page and shown outright.
+  assign preview = request.visual_preview_mode
+
   assign has_policy = false
   if section.settings.policy_url != blank
     if section.settings.policy_label != blank
@@ -31,7 +37,7 @@
      # everything inside it is either fixed or in the top layer, so a grid row
      # of its own would only add an empty band to the page. %}
   <div
-    class="cookie-consent"
+    class="cookie-consent{% if preview %} cookie-consent--preview{% endif %}"
     style="
       --cookie-bg: {{ section.settings.background_color }};
       --cookie-text: {{ section.settings.text_color }};
@@ -42,10 +48,10 @@
     "
   >
     <aside
-      class="cookie-banner"
+      class="cookie-banner{% if preview %} cookie-banner--preview{% endif %}"
       aria-label="{{ 'cookies.banner_label' | t }}"
       data-cookie-banner
-      hidden
+      {% unless preview %}hidden{% endunless %}
     >
       <div class="cookie-banner__panel">
         <div class="cookie-banner__copy">
@@ -153,6 +159,26 @@
 {% stylesheet %}
   .cookie-consent {
     display: contents;
+  }
+
+  /*
+   * Only for the section picker's screenshot: the panel is taken out of the
+   * viewport corner and dropped into the page, already at rest, so there's
+   * something in frame to photograph.
+   */
+  .cookie-consent--preview {
+    display: block;
+    padding: var(--page-margin);
+  }
+
+  .cookie-consent--preview .cookie-banner--preview {
+    position: static;
+    padding: 0;
+  }
+
+  .cookie-consent--preview .cookie-banner__panel {
+    opacity: 1;
+    transform: none;
   }
 
   /*
