@@ -15,54 +15,60 @@
         "link_card_tNtdk6": {
           "type": "link-card",
           "settings": {
-            "title": "Card title",
+            "image": "shopify://shop_images/specialty-medallions.webp",
+            "title": "Specialty Medallions",
             "subtitle": "",
-            "link": ""
+            "link": "/collections/medallions"
           },
           "blocks": {}
         },
         "link_card_9bXU6E": {
           "type": "link-card",
           "settings": {
-            "title": "Card title",
+            "image": "shopify://shop_images/KT-00D-EN_875e272c-c48d-4a83-8a22-88b99c281828.jpg",
+            "title": "Newcomer Keytags",
             "subtitle": "",
-            "link": ""
+            "link": "/products/newcomer-keytags"
           },
           "blocks": {}
         },
         "link_card_dJVJib": {
           "type": "link-card",
           "settings": {
-            "title": "Card title",
+            "image": "shopify://shop_images/PAMPHLETCIRCLE.jpg",
+            "title": "English Pamphlets",
             "subtitle": "",
-            "link": ""
+            "link": "/products/pamphlets"
           },
           "blocks": {}
         },
         "link_card_fJBr7D": {
           "type": "link-card",
           "settings": {
-            "title": "Card title",
+            "image": "shopify://shop_images/CA_Companion_Guide_Cover_2nd_1.png",
+            "title": "Twelve-Step Companion Guide",
             "subtitle": "",
-            "link": ""
+            "link": "/products/twelve-step-companion-guide"
           },
           "blocks": {}
         },
         "link_card_jJkheY": {
           "type": "link-card",
           "settings": {
-            "title": "Card title",
+            "image": "shopify://shop_images/KT-030-EN_71434e4e-e2af-487d-9177-7d482569f664.jpg",
+            "title": "30 Day Keytags",
             "subtitle": "",
-            "link": ""
+            "link": "/products/30-days-keytags"
           },
           "blocks": {}
         },
         "link_card_bQTYYE": {
           "type": "link-card",
           "settings": {
-            "title": "Card title",
+            "image": "shopify://shop_images/AQP_Cover_English_1.png",
+            "title": "A Quiet Peace",
             "subtitle": "",
-            "link": ""
+            "link": "/products/a-quiet-peace"
           },
           "blocks": {}
         }
@@ -78,9 +84,9 @@
       "name": "t:general.link_cards",
       "settings": {
         "heading_tag": "h1",
-        "heading": "Literature, keytags and medallions from the World Service Office.",
+        "heading": "Literature, keytags, medallions and more from the World Service Office.",
         "subheading": "Everything C.A. approved, in one place.",
-        "media_aspect_ratio": "1 / 1",
+        "media_aspect_ratio": "3 / 4",
         "media_fit": "cover",
         "columns_desktop": 6,
         "columns_mobile": "2",
@@ -96,7 +102,7 @@
       "name": "t:general.information",
       "settings": {
         "heading": "Things you need to know",
-        "text": "Cocaine Anonymous is an online store, all orders must be made online. Phone, email and mail-in orders cannot be processed anymore.",
+        "text": "Cocaine Anonymous World Service Shop is an online store, all orders must be made online. Phone, email and mail-in orders cannot be processed anymore.",
         "button_label": "See saved orders",
         "button_url": "",
         "section_background_color": "#f9f8f4",
@@ -135,9 +141,9 @@
         "eyebrow": "We've heard your feedback.",
         "heading_tag": "h2",
         "heading": "New shop design",
-        "text": "The Cocaine Anonymous World Service Shop has been redesigned to accommodate fellowship sales.",
+        "text": "The Cocaine Anonymous World Service Shop has been redesigned to better accommodate the fellowship.",
         "button_label": "Shop keytags",
-        "button_url": "",
+        "button_url": "shopify://collections/keytags",
         "image": "shopify://shop_images/cawso-store-front.jpg",
         "image_position": "feature-split--media-right",
         "section_background_color": "#f9f8f4",

@@ -11,10 +11,41 @@
   "sections": {
     "main": {
       "type": "cart",
+      "blocks": {
+        "easy_donation_donation_block_zdfUMf": {
+          "type": "shopify://apps/easy-donation/blocks/donation-block/0f571958-8dc3-4112-ad5a-636e1e00ef78",
+          "settings": {
+            "redirect_event": "no"
+          }
+        }
+      },
+      "block_order": [
+        "easy_donation_donation_block_zdfUMf"
+      ],
+      "settings": {
+        "continue_url": "",
+        "show_piece_count": true,
+        "show_unit_price": true,
+        "show_note": true,
+        "media_size": 72,
+        "media_fit": "cover",
+        "background_color": "#f9f8f4",
+        "text_color": "#1c2320",
+        "accent_color": "#0d463d",
+        "panel_background_color": "#ffffff",
+        "media_background_color": "#ffffff",
+        "button_background_color": "#c0431b",
+        "button_text_color": "#ffffff",
+        "error_color": "#a5361a"
+      }
+    },
+    "1789845048a080af93": {
+      "type": "apps",
       "settings": {}
     }
   },
   "order": [
-    "main"
+    "main",
+    "1789845048a080af93"
   ]
 }

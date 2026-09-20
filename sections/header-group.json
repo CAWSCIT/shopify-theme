@@ -13,6 +13,7 @@
   "sections": {
     "alert_bar": {
       "type": "alert-bar",
+      "disabled": true,
       "settings": {
         "badge": "Dec 24 – Jan 2",
         "message": "The office is closed for the holidays. Orders placed now ship on January 3.",
@@ -29,31 +30,55 @@
         "books": {
           "type": "collection",
           "settings": {
-            "collection": "automated-collection",
+            "collection": "keytags",
             "label": "",
-            "count_label": "titles"
+            "count_label": "items"
           }
         },
         "pamphlets": {
           "type": "collection",
           "settings": {
-            "collection": "frontpage",
+            "collection": "metal-coins",
             "label": "",
-            "count_label": "titles"
-          }
-        },
-        "keytags": {
-          "type": "collection",
-          "settings": {
-            "collection": "hydrogen",
-            "label": "",
-            "count_label": "products"
+            "count_label": "items"
           }
         },
         "medallions": {
           "type": "collection",
           "settings": {
             "collection": "medallions",
+            "label": "",
+            "count_label": "items"
+          }
+        },
+        "collection_hMYeY3": {
+          "type": "collection",
+          "settings": {
+            "collection": "pamphlets-1",
+            "label": "",
+            "count_label": "items"
+          }
+        },
+        "miscellaneous": {
+          "type": "collection",
+          "settings": {
+            "collection": "books",
+            "label": "",
+            "count_label": "titles"
+          }
+        },
+        "collection_BFxkHq": {
+          "type": "collection",
+          "settings": {
+            "collection": "hospitals-and-institutions",
+            "label": "",
+            "count_label": "products"
+          }
+        },
+        "keytags": {
+          "type": "collection",
+          "settings": {
+            "collection": "miscellaneous-items",
             "label": "",
             "count_label": "products"
           }
@@ -65,27 +90,20 @@
             "label": "",
             "count_label": "products"
           }
-        },
-        "miscellaneous": {
-          "type": "collection",
-          "settings": {
-            "collection": "miscellaneous",
-            "label": "",
-            "count_label": "products"
-          }
         }
       },
       "block_order": [
         "books",
         "pamphlets",
-        "keytags",
         "medallions",
-        "cards",
-        "miscellaneous"
+        "collection_hMYeY3",
+        "miscellaneous",
+        "collection_BFxkHq",
+        "keytags",
+        "cards"
       ],
       "settings": {
         "menu": "main-menu",
-        "logo": "shopify://shop_images/logo-svg-white.svg",
         "logo_width": 64,
         "brand_name": "Cocaine Anonymous",
         "tagline": "World Service Shop",

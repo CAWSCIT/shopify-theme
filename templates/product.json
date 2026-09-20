@@ -12,42 +12,97 @@
     "main": {
       "type": "product",
       "blocks": {
+        "bundlex_bundles_volume_discount_block_pN4mct": {
+          "type": "shopify://apps/bundlex-bundles/blocks/volume-discount-block/c017a4b2-071a-4809-a2c2-1c5768f46bb9",
+          "settings": {
+            "show_advanced": false,
+            "hide_quantity": false,
+            "custom_placement_selector": "",
+            "add_to_cart_button_selector": "",
+            "quantity_container_selector": "",
+            "quantity_input_selector": "",
+            "variants_container_selector": "",
+            "product_form_selector": "",
+            "custom_css": ""
+          }
+        },
         "shipping": {
           "type": "product-detail",
           "settings": {
             "heading": "Shipping and delivery",
-            "content": "<p>Orders ship within two business days. Delivery inside the country takes a further three to seven days.</p>"
-          }
+            "content": "<p>Orders typically ship within two-three business days. </p>"
+          },
+          "blocks": {}
         },
         "bulk": {
           "type": "product-detail",
           "settings": {
             "heading": "Bulk and group orders",
             "content": "<p>Ordering for a group? Larger quantities ship in the same box, and there's nothing to fill in beyond the quantity above.</p>"
-          }
+          },
+          "blocks": {}
         },
         "languages": {
           "type": "product-detail",
           "settings": {
             "heading": "Other languages",
             "content": "<p>Where a translation exists it's listed as a language option above. Ask us if you need one that isn't there yet.</p>"
-          }
+          },
+          "blocks": {}
         }
       },
       "block_order": [
+        "bundlex_bundles_volume_discount_block_pN4mct",
         "shipping",
         "bulk",
         "languages"
       ],
-      "settings": {}
+      "settings": {
+        "show_breadcrumb": true,
+        "eyebrow_source": "product_type",
+        "show_description": true,
+        "show_price_unit": true,
+        "show_option_range": true,
+        "default_quantity": 1,
+        "stock_note": "Most groups order 25 or more at a time.",
+        "after_add": "cart",
+        "media_aspect_ratio": "1 / 1",
+        "media_fit": "contain",
+        "background_color": "#f9f8f4",
+        "text_color": "#1c2320",
+        "accent_color": "#0d463d",
+        "panel_background_color": "#ffffff",
+        "button_background_color": "#c0431b",
+        "button_text_color": "#ffffff"
+      }
     },
     "related": {
       "type": "related-products",
+      "settings": {
+        "heading": "Often ordered together",
+        "products": [],
+        "intent": "complementary",
+        "products_to_show": 4,
+        "subtitle_source": "none",
+        "subtitle_metafield": "custom.subtitle",
+        "media_aspect_ratio": "1 / 1",
+        "columns_desktop": 4,
+        "columns_mobile": "2",
+        "grid_gap": 20,
+        "background_color": "#f9f8f4",
+        "text_color": "#1c2320",
+        "card_background_color": "#ffffff",
+        "media_background_color": "#eae6dc"
+      }
+    },
+    "1789844567c1b10ae9": {
+      "type": "apps",
       "settings": {}
     }
   },
   "order": [
     "main",
-    "related"
+    "related",
+    "1789844567c1b10ae9"
   ]
 }
