@@ -9,7 +9,9 @@
     "dev:assets": "vite build --watch --mode development",
     "dev:theme": "shopify theme dev",
     "build": "vite build",
-    "clean": "rm -f assets/theme.css assets/theme.js"
+    "clean": "rm -f assets/theme.css assets/theme.js",
+    "pull:live": "node scripts/pull-live.mjs",
+    "theme": "node scripts/shopify-safe.mjs"
   },
   "keywords": [],
   "author": "",
