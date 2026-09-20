@@ -132,33 +132,75 @@
           </div>
 
           {%- if product.media.size > 1 -%}
-            <ul role="list" class="product__thumbs mt-3 list-none pl-0">
-              {%- for media in product.media -%}
-                <li>
-                  <a
-                    class="product__thumb {% if forloop.first %}product__thumb--active{% endif %}"
-                    href="#{{ section.id }}-media-{{ media.id }}"
-                    data-thumb
-                    data-media-id="{{ media.id }}"
-                    aria-label="{{ 'products.show_image' | t: index: forloop.index }}"
-                    {% if forloop.first %}
-                      aria-current="true"
-                    {% endif %}
-                  >
-                    {{
-                      media.preview_image
-                      | image_url: width: 320
-                      | image_tag:
-                        widths: '80, 120, 160, 240, 320',
-                        sizes: '(min-width: 64rem) 120px, 22vw',
-                        loading: 'lazy',
-                        class: 'product__thumb-image',
-                        alt: media.alt
-                    }}
-                  </a>
-                </li>
-              {%- endfor -%}
-            </ul>
+            {% # More than a row's worth of thumbnails used to wrap into a wall
+               # that pushed the rest of the page down, so past that point the
+               # strip becomes a two-row track holding fourteen at a time and
+               # scrolls a page at a time for the rest. %}
+            {%- liquid
+              assign thumbs_paged = ''
+              if product.media.size > 7
+                assign thumbs_paged = 'product__thumbs-wrap--paged'
+              endif
+            -%}
+
+            <div class="product__thumbs-wrap {{ thumbs_paged }} mt-3" data-thumbs-wrap>
+              <ul role="list" class="product__thumbs list-none pl-0" data-thumbs-track>
+                {%- for media in product.media -%}
+                  <li>
+                    <a
+                      class="product__thumb {% if forloop.first %}product__thumb--active{% endif %}"
+                      href="#{{ section.id }}-media-{{ media.id }}"
+                      data-thumb
+                      data-media-id="{{ media.id }}"
+                      aria-label="{{ 'products.show_image' | t: index: forloop.index }}"
+                      {% if forloop.first %}
+                        aria-current="true"
+                      {% endif %}
+                    >
+                      {{
+                        media.preview_image
+                        | image_url: width: 320
+                        | image_tag:
+                          widths: '80, 120, 160, 240, 320',
+                          sizes: '(min-width: 64rem) 120px, 22vw',
+                          loading: 'lazy',
+                          class: 'product__thumb-image',
+                          alt: media.alt
+                      }}
+                    </a>
+                  </li>
+                {%- endfor -%}
+              </ul>
+
+              {%- if thumbs_paged != blank -%}
+                {% # Hidden until the script has measured the track: with it
+                   # absent the strip is still swipeable, and every thumbnail is
+                   # still a plain link to its slide. %}
+                <button
+                  class="product__thumb-nav product__thumb-nav--prev"
+                  type="button"
+                  data-thumb-nav="-1"
+                  aria-label="{{ 'products.previous_images' | t }}"
+                  hidden
+                >
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="m15 5-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+
+                <button
+                  class="product__thumb-nav product__thumb-nav--next"
+                  type="button"
+                  data-thumb-nav="1"
+                  aria-label="{{ 'products.next_images' | t }}"
+                  hidden
+                >
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              {%- endif -%}
+            </div>
           {%- endif -%}
         {%- else -%}
           <div class="product__viewer">
@@ -520,10 +562,16 @@
     height: 100%;
   }
 
+  .product__thumbs-wrap {
+    position: relative;
+  }
+
   /*
    * Flex rather than a grid track list: the thumbnails then spread to fill the
    * gallery however many there are, wrap once they'd fall below 5rem, and stop
    * growing at 14rem so two of them don't blow up to half the column each.
+   *
+   * Only up to a row's worth, though — past that `--paged` below takes over.
    */
   .product__thumbs {
     display: flex;
@@ -535,6 +583,105 @@
     display: flex;
     flex: 1 1 5rem;
     max-width: 14rem;
+  }
+
+  /*
+   * Two fixed rows filled column by column, so a long strip stays two rows tall
+   * and scrolls sideways instead of walling off the page. `--thumb-cols` is the
+   * number on screen at once, which is also how far a nav button scrolls.
+   *
+   * Positioned so the script can read a thumbnail's `offsetLeft` straight off
+   * the track rather than through the wrapper.
+   */
+  .product__thumbs-wrap--paged .product__thumbs {
+    --thumb-cols: 4;
+
+    position: relative;
+    display: grid;
+    overflow-x: auto;
+    grid-auto-columns: calc((100% - (var(--thumb-cols) - 1) * 0.75rem) / var(--thumb-cols));
+    grid-auto-flow: column;
+    grid-template-rows: repeat(2, auto);
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .product__thumbs-wrap--paged .product__thumbs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .product__thumbs-wrap--paged .product__thumbs > li {
+    flex: none;
+    max-width: none;
+    scroll-snap-align: start;
+  }
+
+  @media (min-width: 40rem) {
+    .product__thumbs-wrap--paged .product__thumbs {
+      --thumb-cols: 6;
+    }
+  }
+
+  /* The gallery is back to half the page here, so seven is about 80px each. */
+  @media (min-width: 64rem) {
+    .product__thumbs-wrap--paged .product__thumbs {
+      --thumb-cols: 7;
+    }
+  }
+
+  /*
+   * Overlaid on the ends of the strip rather than given their own line: the
+   * point of the change is to buy back vertical space. Hidden until the script
+   * has confirmed there's something to scroll to.
+   */
+  .product__thumb-nav {
+    position: absolute;
+    top: 50%;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    color: inherit;
+    cursor: pointer;
+    background-color: var(--product-panel-bg, #ffffff);
+    border: 1px solid var(--product-border, rgb(0 0 0 / 12%));
+    border-radius: 999px;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
+    transform: translateY(-50%);
+    transition:
+      border-color 150ms ease,
+      opacity 150ms ease;
+  }
+
+  .product__thumb-nav[hidden] {
+    display: none;
+  }
+
+  .product__thumb-nav--prev {
+    left: -0.25rem;
+  }
+
+  .product__thumb-nav--next {
+    right: -0.25rem;
+  }
+
+  .product__thumb-nav:hover,
+  .product__thumb-nav:focus-visible {
+    border-color: var(--product-accent, #0d463d);
+  }
+
+  /* Left in place rather than removed, so the strip doesn't shift under the cursor. */
+  .product__thumb-nav:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
+  .product__thumb-nav svg {
+    width: 1rem;
+    height: 1rem;
   }
 
   .product__thumb {
@@ -797,6 +944,8 @@
       const viewer = root.querySelector('[data-viewer]');
       const slides = Array.from(root.querySelectorAll('[data-slide]'));
       const thumbs = Array.from(root.querySelectorAll('[data-thumb]'));
+      const thumbTrack = root.querySelector('[data-thumbs-track]');
+      const thumbNav = Array.from(root.querySelectorAll('[data-thumb-nav]'));
 
       let current = variants.find((variant) => String(variant.id) === idField?.value) || variants[0];
 
@@ -818,12 +967,56 @@
         );
       }
 
+      function reducedMotion() {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      }
+
+      // Only meaningful once the strip is the two-row scrolling kind; a
+      // thumbnail already on screen is left where it is so picking through the
+      // strip doesn't shuffle it under the cursor.
+      function revealThumb(thumb) {
+        if (!thumbTrack) return;
+
+        const slack = thumbTrack.scrollWidth - thumbTrack.clientWidth;
+        if (slack <= 1) return;
+
+        const start = thumb.offsetLeft;
+        const end = start + thumb.offsetWidth;
+        if (start >= thumbTrack.scrollLeft && end <= thumbTrack.scrollLeft + thumbTrack.clientWidth) {
+          return;
+        }
+
+        const centred = start - (thumbTrack.clientWidth - thumb.offsetWidth) / 2;
+        thumbTrack.scrollTo({
+          left: Math.max(0, Math.min(centred, slack)),
+          behavior: reducedMotion() ? 'auto' : 'smooth',
+        });
+      }
+
+      // The buttons ship hidden, so this is also what reveals them — and it
+      // re-runs whenever the track is resized, where a narrower gallery fits
+      // fewer columns and can start overflowing.
+      function renderThumbNav() {
+        if (!thumbTrack || thumbNav.length === 0) return;
+
+        const slack = thumbTrack.scrollWidth - thumbTrack.clientWidth;
+
+        thumbNav.forEach((button) => {
+          const forward = Number(button.dataset.thumbNav) > 0;
+          button.hidden = slack <= 1;
+          button.disabled = forward
+            ? thumbTrack.scrollLeft >= slack - 1
+            : thumbTrack.scrollLeft <= 1;
+        });
+      }
+
       function setActiveThumb(mediaId) {
         thumbs.forEach((thumb) => {
           const isActive = thumb.dataset.mediaId === String(mediaId);
           thumb.classList.toggle('product__thumb--active', isActive);
           if (isActive) {
             thumb.setAttribute('aria-current', 'true');
+            revealThumb(thumb);
           } else {
             thumb.removeAttribute('aria-current');
           }
@@ -836,10 +1029,9 @@
         const slide = slides.find((item) => item.dataset.mediaId === String(mediaId));
         if (!slide) return;
 
-        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         viewer.scrollTo({
           left: slide.offsetLeft - viewer.offsetLeft,
-          behavior: reduced ? 'auto' : 'smooth',
+          behavior: reducedMotion() ? 'auto' : 'smooth',
         });
       }
 
@@ -933,6 +1125,32 @@
           setActiveThumb(thumb.dataset.mediaId);
         });
       });
+
+      thumbNav.forEach((button) => {
+        button.addEventListener('click', () => {
+          if (!thumbTrack) return;
+
+          // A page is whatever is on screen, so this follows `--thumb-cols`
+          // across breakpoints without the script having to know the number.
+          thumbTrack.scrollBy({
+            left: thumbTrack.clientWidth * Number(button.dataset.thumbNav),
+            behavior: reducedMotion() ? 'auto' : 'smooth',
+          });
+        });
+      });
+
+      if (thumbTrack && thumbNav.length > 0) {
+        thumbTrack.addEventListener('scroll', renderThumbNav, { passive: true });
+
+        // Watching the track rather than the window: the observer goes away
+        // with the markup, which matters in the theme editor where a setting
+        // change re-runs this whole function against replaced elements.
+        if ('ResizeObserver' in window) {
+          new ResizeObserver(renderThumbNav).observe(thumbTrack);
+        }
+
+        renderThumbNav();
+      }
 
       // Which slide is in view is the source of truth for the active thumbnail,
       // so swiping the gallery keeps the strip below it in step too.

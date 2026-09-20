@@ -253,8 +253,10 @@
       "one": "{{ count }} option",
       "other": "{{ count }} options"
     },
+    "next_images": "Show more images",
     "option_range_html": "{{ first }} to {{ last }}",
     "out_of_stock": "Out of stock.",
+    "previous_images": "Show earlier images",
     "price": {
       "each": "each",
       "each_price_html": "{{ price }} each",
