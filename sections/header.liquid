@@ -181,61 +181,94 @@
   {% # Row 2 — catalog collections with their product counts %}
   {%- if section.blocks.size > 0 -%}
     <div class="bg-[var(--header-nav-bg)]">
-      <nav
-        class="header__catalog mx-auto flex max-w-[var(--page-width)] items-stretch gap-6 overflow-x-auto px-[var(--page-margin)] lg:gap-8"
-        tabindex="0"
-        aria-label="{{ 'general.navigation.catalog' | t }}"
-      >
-        {%- for block in section.blocks -%}
-          {%- liquid
-            assign nav_url = blank
-            assign nav_label = block.settings.label
-            assign nav_description = blank
-            assign is_active = false
+      {% # The page-width box moved out to this wrapper so the arrows can sit
+         # against it. The row itself keeps the page margin, which is what its
+         # snap positions are measured from. %}
+      <div class="header__catalog-wrap relative mx-auto max-w-[var(--page-width)]" data-catalog-wrap>
+        <nav
+          class="header__catalog flex items-stretch gap-6 overflow-x-auto px-[var(--page-margin)] lg:gap-8"
+          tabindex="0"
+          aria-label="{{ 'general.navigation.catalog' | t }}"
+        >
+          {%- for block in section.blocks -%}
+            {%- liquid
+              assign nav_url = blank
+              assign nav_label = block.settings.label
+              assign nav_description = blank
+              assign is_active = false
 
-            case block.type
-              when 'collection'
-                assign nav_collection = block.settings.collection
-                if nav_collection != blank
-                  assign nav_url = nav_collection.url
-                  assign nav_label = nav_label | default: nav_collection.title
-                  if block.settings.count_label != 'none'
-                    capture count_key
-                      echo 'general.navigation.count_'
-                      echo block.settings.count_label
-                    endcapture
-                    assign nav_description = count_key | t: count: nav_collection.all_products_count
+              case block.type
+                when 'collection'
+                  assign nav_collection = block.settings.collection
+                  if nav_collection != blank
+                    assign nav_url = nav_collection.url
+                    assign nav_label = nav_label | default: nav_collection.title
+                    if block.settings.count_label != 'none'
+                      capture count_key
+                        echo 'general.navigation.count_'
+                        echo block.settings.count_label
+                      endcapture
+                      assign nav_description = count_key | t: count: nav_collection.all_products_count
+                    endif
+                    if nav_collection.handle == active_collection_handle
+                      assign is_active = true
+                    endif
                   endif
-                  if nav_collection.handle == active_collection_handle
+                when 'link'
+                  assign nav_url = block.settings.url
+                  assign nav_description = block.settings.description
+                  if nav_url == request.path
                     assign is_active = true
                   endif
-                endif
-              when 'link'
-                assign nav_url = block.settings.url
-                assign nav_description = block.settings.description
-                if nav_url == request.path
-                  assign is_active = true
-                endif
-            endcase
-          -%}
+              endcase
+            -%}
 
-          {%- if nav_url != blank and nav_label != blank -%}
-            <a
-              href="{{ nav_url }}"
-              class="flex shrink-0 flex-col justify-center border-b-[4px] py-3 text-[var(--header-text)] no-underline  md:px-6 {% if is_active %}border-[var(--header-accent)]{% else %}border-transparent hover:border-[var(--header-accent)]{% endif %}"
-              {% if is_active %}
-                aria-current="page"
-              {% endif %}
-              {{ block.shopify_attributes }}
-            >
-              <span class="text-[0.875rem] font-medium">{{ nav_label }}</span>
-              {%- if nav_description != blank -%}
-                <span class="text-xs leading-tight opacity-70">{{ nav_description }}</span>
-              {%- endif -%}
-            </a>
-          {%- endif -%}
-        {%- endfor -%}
-      </nav>
+            {%- if nav_url != blank and nav_label != blank -%}
+              <a
+                href="{{ nav_url }}"
+                class="flex shrink-0 flex-col justify-center border-b-[4px] py-3 text-[var(--header-text)] no-underline  md:px-6 {% if is_active %}border-[var(--header-accent)]{% else %}border-transparent hover:border-[var(--header-accent)]{% endif %}"
+                {% if is_active %}
+                  aria-current="page"
+                {% endif %}
+                {{ block.shopify_attributes }}
+              >
+                <span class="text-[0.875rem] font-medium">{{ nav_label }}</span>
+                {%- if nav_description != blank -%}
+                  <span class="text-xs leading-tight opacity-70">{{ nav_description }}</span>
+                {%- endif -%}
+              </a>
+            {%- endif -%}
+          {%- endfor -%}
+        </nav>
+
+        {% # Only ever shown over the band where the row overflows but the
+           # drawer hasn't taken over — see the media query in the stylesheet.
+           # They stay hidden until the script has measured real overflow, so
+           # with it absent the row is swipeable and nothing dead is rendered. %}
+        <button
+          class="header__catalog-nav header__catalog-nav--prev"
+          type="button"
+          data-catalog-nav="-1"
+          aria-label="{{ 'general.navigation.previous_collections' | t }}"
+          hidden
+        >
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+            <path d="m15 5-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <button
+          class="header__catalog-nav header__catalog-nav--next"
+          type="button"
+          data-catalog-nav="1"
+          aria-label="{{ 'general.navigation.next_collections' | t }}"
+          hidden
+        >
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+            <path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
     </div>
   {%- endif -%}
 </header>
@@ -290,6 +323,66 @@
       transparent
     );
   }
+
+  /*
+   * Kept out of the way by default and only unwrapped over the band that
+   * actually needs them: below 48rem the drawer has taken the menu over and a
+   * swipe is the expected gesture anyway, and above 78.75rem there are few
+   * enough collections that the row fits without scrolling. The script only
+   * unhides them when the row really does overflow, so with it off — or
+   * outside the band — they cost nothing and stay out of the tab order.
+   */
+  .header__catalog-nav {
+    display: none;
+  }
+
+  @media (min-width: 48rem) and (max-width: 78.74rem) {
+    .header__catalog-nav:not([hidden]) {
+      position: absolute;
+      top: 50%;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      color: var(--header-text, inherit);
+      cursor: pointer;
+      background-color: var(--header-nav-bg, transparent);
+      border: 1px solid color-mix(in srgb, currentcolor 25%, transparent);
+      border-radius: 999px;
+      box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+      transform: translateY(-50%);
+      transition:
+        border-color 150ms ease,
+        opacity 150ms ease;
+    }
+  }
+
+  .header__catalog-nav--prev {
+    left: 0;
+  }
+
+  .header__catalog-nav--next {
+    right: 0;
+  }
+
+  .header__catalog-nav:hover,
+  .header__catalog-nav:focus-visible {
+    border-color: var(--header-accent, currentcolor);
+  }
+
+  /* Left in place rather than removed, so the row doesn't shift under the cursor. */
+  .header__catalog-nav:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
+  .header__catalog-nav svg {
+    width: 1rem;
+    height: 1rem;
+  }
 {% endstylesheet %}
 
 {% javascript %}
@@ -300,12 +393,19 @@
       if (nav.dataset.catalogReady) return;
       nav.dataset.catalogReady = 'true';
 
+      const wrap = nav.closest('[data-catalog-wrap]');
+      const arrows = wrap ? Array.from(wrap.querySelectorAll('[data-catalog-nav]')) : [];
+
       function update() {
         const max = nav.scrollWidth - nav.clientWidth;
 
-        // Nothing to scroll: drop the attribute so no mask is applied at all.
+        // Nothing to scroll: drop the attribute so no mask is applied at all,
+        // and put the arrows back out of reach.
         if (max <= 1) {
           delete nav.dataset.overflow;
+          arrows.forEach((arrow) => {
+            arrow.hidden = true;
+          });
           return;
         }
 
@@ -320,7 +420,25 @@
         } else {
           nav.dataset.overflow = 'both';
         }
+
+        // Which viewports these are allowed to appear at is the stylesheet's
+        // call, not this script's — `hidden` only says there's somewhere to go.
+        arrows.forEach((arrow) => {
+          arrow.hidden = false;
+          arrow.disabled = Number(arrow.dataset.catalogNav) > 0 ? atEnd : atStart;
+        });
       }
+
+      arrows.forEach((arrow) => {
+        arrow.addEventListener('click', () => {
+          const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+          nav.scrollBy({
+            left: nav.clientWidth * Number(arrow.dataset.catalogNav),
+            behavior: reduced ? 'auto' : 'smooth',
+          });
+        });
+      });
 
       nav.addEventListener('scroll', update, { passive: true });
       window.addEventListener('resize', update);

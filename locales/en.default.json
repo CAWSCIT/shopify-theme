@@ -221,7 +221,9 @@
       "count_items": {
         "one": "{{ count }} item",
         "other": "{{ count }} items"
-      }
+      },
+      "previous_collections": "Show earlier collections",
+      "next_collections": "Show more collections"
     }
   },
   "gift_card": {
